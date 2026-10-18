@@ -133,6 +133,7 @@
   }
 
   function render() {
+    renderDemoBar();
     if (!token) return renderStart();
     if (!S) { $app.innerHTML = '<div class="center"><p>불러오는 중…</p></div>'; return; }
     if (role === 'senior') return renderSenior();
@@ -146,7 +147,8 @@
     if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
-        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button></div>';
+        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button>' +
+        '<button class="role-btn demo-btn" data-start="demo"><b>📱 폰 하나로 체험하기</b><span>테스트용. 어르신 화면과 보호자 화면을 이 폰에서 번갈아 볼 수 있어요.</span></button></div>';
     } else if (step === 'start-senior') {
       $app.innerHTML = '<form class="start" id="f-senior"><h1>어르신 폰</h1>' +
         '<div class="field"><label for="elder-name">어르신 성함 (보호자 화면에 표시)</label><input id="elder-name" maxlength="20" placeholder="예: 김순자" autocomplete="off"></div>' +
@@ -225,7 +227,7 @@
           '<button class="big b-pill" data-act="took">' + ICON.pill + '약 먹었어</button>' +
         '</div>' +
         '<button class="mic" data-act="voice">' + ICON.mic + '말로 하기</button>' +
-        '<button class="small-link" data-act="show-pair">보호자 폰 연결</button>';
+        (isDemo() ? '' : '<button class="small-link" data-act="show-pair">보호자 폰 연결</button>');
     } else if (r === 'call' || r === 'photo-who') {
       const isCall = r === 'call';
       html += '<div class="s-head"><button class="back" data-go="home">← 처음으로</button></div>' +
@@ -257,8 +259,9 @@
     } else if (r === 'took') {
       html += '<div class="center s-center"><div class="ring" style="background:var(--pill)">✓</div>' +
         '<h2>잘하셨어요!</h2><p>' + esc(ui.ctx.label) + ' 드신 것을<br>보호자에게 알렸어요</p>' +
+        (ui.ctx.sample ? '<p class="hint">체험용 예시 약이라 기록은 남지 않아요</p>' : '') +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" data-go="home">처음으로</button>' +
-        '<button class="ghost-btn" data-act="undo">↩ 잘못 눌렀어요<br><small>아직 안 먹었어요</small></button></div>';
+        (ui.ctx.sample ? '' : '<button class="ghost-btn" data-act="undo">↩ 잘못 눌렀어요<br><small>아직 안 먹었어요</small></button>') + '</div>';
     } else if (r === 'undone') {
       html += '<div class="center s-center"><div class="ring" style="background:var(--wait-fg)">↩</div>' +
         '<h2>되돌렸어요</h2><p>' + esc(ui.ctx.label) + '은 아직 안 드신 걸로 할게요.<br>드신 다음에 다시 눌러 주세요</p>' +
@@ -291,10 +294,12 @@
     if (f) f.addEventListener('submit', e => { e.preventDefault(); const v = document.getElementById('say-input').value.trim(); if (v) handleUtterance([v]); });
   }
 
-  async function takeMed() {
+  async function takeMed(time) {
     stopAlarm();
     try {
-      const r = await rpc('hyodo_take_med', { p_token: token });
+      const r = time
+        ? await rpc('hyodo_take_med_at', { p_token: token, p_time: time })
+        : await rpc('hyodo_take_med', { p_token: token });
       if (r.none) { await refresh(); return go('nomed'); }
       // 새로 불러오기 전에 알람이 다시 울리지 않도록 같은 시간 약을 바로 표시해 둔다
       S.meds.forEach(x => { if (x.time === r.time) x.status = 'ok'; });
@@ -424,13 +429,20 @@
     const m = dueGroup();
     // 알람이 떠 있는 동안 같은 시간 약이 추가되면 화면을 고친다
     if (m && ui.alarm && m.time === ui.alarm.time && m.ids.join() !== ui.alarm.ids.join()) { ui.alarm = m; render(); }
-    if (m && !ui.alarm) {
-      ui.alarm = m;
-      render();
-      beep(); beepTimer = setInterval(beep, 2500);
-      speak('약 드실 시간이에요. ' + m.label + '입니다.');
-      speakTimer = setInterval(() => speak('약 드실 시간이에요. ' + m.label + '입니다.'), 20000);
-    }
+    if (m && !ui.alarm) startAlarm(m);
+  }
+  function startAlarm(m) {
+    stopAlarm();
+    ui.alarm = m; ui.voiceOpen = false;
+    render();
+    beep(); beepTimer = setInterval(beep, 2500);
+    speak('약 드실 시간이에요. ' + m.label + '입니다.');
+    speakTimer = setInterval(() => speak('약 드실 시간이에요. ' + m.label + '입니다.'), 20000);
+  }
+  // 체험: 다음 약(없으면 예시 약)으로 알람을 바로 울려 본다
+  function previewAlarm() {
+    const g = nextGroup();
+    startAlarm(g ? Object.assign({}, g) : { time: nowHM(), label: '예시 약', ids: [], sample: true });
   }
   function stopAlarm() {
     ui.alarm = null;
@@ -491,6 +503,13 @@
         '<span>' + sayTime(m.time) + ' 약이에요. 전화해 보시겠어요?</span></div>';
     });
 
+    if (isDemo()) {
+      html += '<div class="notice demo-guide"><b>체험 중이에요</b><ol>' +
+        '<li>아래에서 약과 연락처를 넣어 보세요</li>' +
+        '<li>맨 위 <b>👵 어르신</b>을 누르면 어르신 화면으로 바뀌어요</li>' +
+        '<li><b>🔔 알람</b>을 누르면 약 알람을 바로 울려 볼 수 있어요</li></ol></div>';
+    }
+
     if ('Notification' in window && Notification.permission === 'default') {
       html += '<div class="notice"><span>약을 안 드시면 이 폰에 알림을 띄울까요?</span><button class="g-btn primary" data-g="notify">알림 켜기</button></div>';
     }
@@ -541,12 +560,12 @@
       (S.activity.length ? S.activity.map(l => '<div><time>' + esc(l.t) + '</time><span>' + esc(l.msg) + '</span></div>').join('') : '<span class="empty">아직 기록이 없어요.</span>') +
       '</div></div>';
 
-    html += '<div class="foot">' +
+    html += '<div class="foot">' + (isDemo() ? '' :
       (S.pair_code ? '<div>다른 가족을 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
                    : '<div><button class="g-btn" data-g="new-code">다른 가족 연결 코드 만들기</button></div>') +
       '<div>보호자 화면 주소: <b>' + esc(location.origin + location.pathname) + '#/guardian</b></div>' +
       (store.get('senior.token') ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>' : '') +
-      '<div><button class="g-btn" data-g="leave">이 폰 연결 끊기</button></div></div></div>';
+      '<div><button class="g-btn" data-g="leave">이 폰 연결 끊기</button></div>') + '</div></div>';
 
     $app.innerHTML = html;
     loadPhotos();
@@ -595,6 +614,10 @@
   $app.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
 
+    if (b.dataset.start === 'demo') {
+      b.disabled = true;
+      return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); });
+    }
     if (b.dataset.start) {
       ui.route = b.dataset.start === 'back' ? 'start' : 'start-' + b.dataset.start;
       if (b.dataset.start === 'back') history.replaceState(null, '', location.pathname);
@@ -611,7 +634,12 @@
         return photoInput.click();
       }
       const a = b.dataset.act;
-      if (a === 'took' || a === 'alarm-took') return takeMed();
+      if (a === 'took') return takeMed();
+      if (a === 'alarm-took') {
+        const al = ui.alarm;
+        if (al.sample) { stopAlarm(); return go('took', { label: al.label, sample: true }); }
+        return takeMed(al.time);
+      }
       if (a === 'undo') return undoMed();
       if (a === 'voice') return openVoice();
       if (a === 'listen') return listen();
@@ -621,7 +649,7 @@
       if (a === 'new-code') return rpc('hyodo_refresh_pair_code', { p_token: token }).then(refresh).catch(() => toast('코드를 받지 못했어요'));
       if (a === 'alarm-snooze') {
         snoozeIds(ui.alarm.ids);
-        rpc('hyodo_log', { p_token: token, p_msg: ui.alarm.label + ' 알람을 10분 미루셨어요' }).then(() => ping()).catch(() => {});
+        if (!ui.alarm.sample) rpc('hyodo_log', { p_token: token, p_msg: ui.alarm.label + ' 알람을 10분 미루셨어요' }).then(() => ping()).catch(() => {});
         stopAlarm(); return render();
       }
       if (a === 'send') {
@@ -724,17 +752,69 @@
     } catch (e) { toast(e.message); }
   });
 
+  /* ---------- 체험 모드 (테스트용: 폰 하나로 어르신·보호자 화면 번갈아 보기) ---------- */
+  const $demoBar = document.getElementById('demo-bar');
+  const isDemo = () => store.get('demo') === '1' && !!store.get('senior.token') && !!store.get('guardian.token');
+  let pendingPreview = false;
+
+  async function startDemo() {
+    const r = await rpc('hyodo_create_demo', {});
+    store.set('senior.token', r.senior); store.set('guardian.token', r.guardian); store.set('demo', '1');
+    if (location.hash === '#/guardian') return switchTo('guardian');
+    location.hash = '#/guardian';
+  }
+
+  function endDemo() {
+    stopAlarm();
+    store.set('senior.token', null); store.set('guardian.token', null); store.set('demo', null);
+    if (chan) { sb.removeChannel(chan); chan = null; }
+    token = null; role = null; S = null; ui.route = 'start';
+    history.replaceState(null, '', location.pathname);
+    render();
+  }
+
+  function renderDemoBar() {
+    const on = isDemo() && !!token;
+    document.body.classList.toggle('demo', on);
+    $demoBar.hidden = !on;
+    if (!on) return;
+    $demoBar.innerHTML = '<span class="demo-tag">체험</span>' +
+      '<div class="demo-seg"><button data-demo="senior" aria-pressed="' + (role === 'senior') + '">👵 어르신</button>' +
+      '<button data-demo="guardian" aria-pressed="' + (role === 'guardian') + '">👨‍👩‍👧 보호자</button></div>' +
+      '<button data-demo="alarm">🔔 알람</button>' +
+      '<button data-demo="end" class="demo-end">끝내기</button>';
+  }
+
+  $demoBar.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const d = b.dataset.demo;
+    if (d === 'senior' || d === 'guardian') { location.hash = '#/' + d; return; }
+    if (d === 'alarm') {
+      if (role === 'senior' && S) return previewAlarm();
+      pendingPreview = true; location.hash = '#/senior'; return;
+    }
+    if (d === 'end') {
+      if (b.dataset.confirm) return endDemo();
+      b.dataset.confirm = '1'; b.textContent = '정말 끝낼까요?'; return;
+    }
+  });
+
   /* ---------- 시작 ---------- */
   if (token) { ui.route = 'home'; refresh().then(render); } else render();
   // 주소의 #/guardian 등을 바꾸면 그 역할 화면으로 바꿔 보여 준다
-  window.addEventListener('hashchange', () => {
-    const r = pickRole();
-    if (r === role && token) return;
+  function switchTo(r) {
     if (chan) { sb.removeChannel(chan); chan = null; }
     stopAlarm();
     role = r; token = r ? store.get(r + '.token') : null; S = null;
     ui.route = token ? 'home' : 'start'; ui.ctx = {}; ui.voiceOpen = false;
-    if (token) refresh().then(render); else render();
+    if (token) return refresh().then(render);
+    render();
+    return Promise.resolve();
+  }
+  window.addEventListener('hashchange', () => {
+    const r = pickRole();
+    if (r === role && token) return;
+    switchTo(r).then(() => { if (pendingPreview && role === 'senior') { pendingPreview = false; previewAlarm(); } });
   });
 
   // 어르신 폰: 시계·알람은 20초마다, 서버 상태는 1분마다. 보호자 폰: 1분마다.

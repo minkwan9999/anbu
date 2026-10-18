@@ -191,3 +191,22 @@ img { max-width: 100%; }
 .log time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
 .foot { font-size: 13px; color: var(--muted); display: grid; gap: 8px; overflow-wrap: anywhere; }
 .foot a { color: var(--photo); font-weight: 600; }
+
+/* ---------- 체험 모드 ---------- */
+.demo-btn { border-style: dashed; }
+.demo-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+  display: flex; align-items: center; gap: 6px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
+  background: var(--ink); color: var(--bg); font-family: var(--font-ui); font-size: 14px;
+}
+.demo-bar button { border: 0; border-radius: 8px; padding: 7px 10px; background: transparent; color: var(--bg); font-weight: 600; white-space: nowrap; }
+.demo-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 6px; border-radius: 6px; background: var(--pill); color: #ffffff; }
+.demo-seg { display: flex; background: rgba(127,127,127,.25); border-radius: 10px; padding: 2px; }
+.demo-seg button[aria-pressed="true"] { background: var(--bg); color: var(--ink); }
+.demo-end { margin-left: auto; opacity: .75; }
+body.demo .app { padding-top: calc(54px + env(safe-area-inset-top, 0px)); }
+body.demo .overlay { padding-top: calc(70px + env(safe-area-inset-top, 0px)); }
+body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
+.demo-guide { display: grid; gap: 4px; justify-content: stretch; }
+.demo-guide ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }

@@ -12,6 +12,9 @@
 3. 보호자 폰에서 약과 연락처를 넣으면 어르신 폰에 바로 반영됩니다.
 4. 양쪽 다 브라우저 메뉴의 **홈 화면에 추가**를 하면 앱처럼 열립니다.
 
+**폰 하나로 체험하기**(테스트용): 시작 화면의 세 번째 버튼. 어르신과 보호자가 한 폰 안에서 자동으로 연결되고,
+맨 위 막대로 두 화면을 오가며 🔔 알람을 바로 울려 볼 수 있습니다. 체험 가구는 DB에 `demo = true`로 표시되어 실제 사용과 구분됩니다.
+
 **주소**: 기본 주소는 어르신 화면, 주소 끝에 `#/guardian`을 붙이면 보호자 화면입니다.
 한 기기에 어르신·보호자를 둘 다 연결해도 따로 기억하므로, PC 하나로 두 화면을 번갈아 시험할 수 있습니다.
 
@@ -39,6 +42,7 @@
 Supabase SQL 편집기에서:
 
 ```sql
-select created_at at time zone 'Asia/Seoul' as 시각, heard as 들린말, intent as 해석
-from hyodo.voice_logs order by id desc limit 100;
+select v.created_at at time zone 'Asia/Seoul' as 시각, v.heard as 들린말, v.intent as 해석, h.demo as 체험
+from hyodo.voice_logs v join hyodo.households h on h.id = v.household_id
+order by v.id desc limit 100;
 ```
