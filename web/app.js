@@ -47,6 +47,7 @@
   function pickRole() {
     const h = location.hash, s = store.get(tkey('senior')), g = store.get(tkey('guardian'));
     if (/^#\/join\//.test(h)) return null;            // 연결 링크는 handleJoin 이 처리
+    if (h === '#/demo') return null;                    // 체험 주소는 늘 체험 시작 화면부터
     if (/^#\/guardian/.test(h)) return g ? 'guardian' : null;
     if (/^#\/senior/.test(h)) return s ? 'senior' : null;
     return s ? 'senior' : g ? 'guardian' : null;
@@ -194,10 +195,12 @@
     const demo = mode === 'demo';
     // 실제 사용 시작 화면(기본 주소)과 체험 시작 화면(#/demo)은 주소로 완전히 나눈다
     if (step === 'start' && demo) {
+      const resume = hasDemo();
       $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 테스트용</span><h1>효도비서 체험</h1>' +
         '<p>여기서 만든 체험 데이터는 실제 사용과 따로 저장돼요.</p>' +
-        '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
-        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험</b><span>이 폰을 체험용 어르신으로 시작해요. 다른 폰으로 QR을 찍으면 그 폰이 체험용 보호자가 돼요.</span></button></div>';
+        (resume ? '<button class="role-btn" data-start="demo-resume"><b>▶ 하던 체험 이어서 하기</b><span>이 폰에서 하던 체험 화면으로 돌아가요.</span></button>' : '') +
+        '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
+        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>이 폰을 체험용 어르신으로 시작해요. 다른 폰으로 QR을 찍으면 그 폰이 체험용 보호자가 돼요.</span></button></div>';
     } else if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
@@ -821,11 +824,17 @@
 
     const st = b.dataset.start;
     if (st === 'join-photo') return joinPhotoInput.click();
+    if (st === 'demo-resume') { location.hash = store.get('demo.guardian.token') ? '#/guardian' : '#/senior'; return; }
     if (st === 'demo1') {
+      // 새로 시작: 하던 체험은 지우고 등록부터
+      store.set('demo.senior.token', null); store.set('demo.guardian.token', null);
       b.disabled = true;
       return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); });
     }
-    if (st === 'demo2') { setMode('demo'); ui.route = 'start-senior'; return renderStart(); }
+    if (st === 'demo2') {
+      store.set('demo.senior.token', null); store.set('demo.guardian.token', null);
+      setMode('demo'); ui.route = 'start-senior'; return renderStart();
+    }
     if (st === 'senior' || st === 'guardian') { setMode('real'); ui.route = 'start-' + st; ui.joinInfo = null; return renderStart(); }
     if (st === 'back') {
       // 체험 쪽에서 뒤로 가면 체험 시작 화면, 실제 쪽이면 실제 시작 화면
