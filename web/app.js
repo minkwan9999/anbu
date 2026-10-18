@@ -21,14 +21,27 @@
     return data;
   }
 
-  let token = store.get('token');
-  let role = store.get('role');
+  // 어르신·보호자 토큰을 따로 둔다. 한 기기(예: PC 하나)로 둘 다 시험해도 서로 덮어쓰지 않는다.
+  // 주소: 기본 = 어르신 화면, #/guardian = 보호자 화면, #/join/코드 = 보호자 연결
+  (function migrate() {
+    const t = store.get('token'), r = store.get('role');
+    if (t && r) { store.set(r + '.token', t); store.set('token', null); store.set('role', null); }
+  })();
+  function pickRole() {
+    const h = location.hash, s = store.get('senior.token'), g = store.get('guardian.token');
+    if (/^#\/join\//.test(h)) return null;
+    if (/^#\/guardian/.test(h)) return g ? 'guardian' : null;
+    if (/^#\/senior/.test(h)) return s ? 'senior' : null;
+    return s ? 'senior' : g ? 'guardian' : null;
+  }
+  let role = pickRole();
+  let token = role ? store.get(role + '.token') : null;
   let S = null;              // 서버 상태 (hyodo_state)
   const ui = { route: 'home', ctx: {}, alarm: null, heard: '' };
 
   function forget() {
     token = null; role = null; S = null;
-    store.set('token', null); store.set('role', null);
+    if (role) store.set(role + '.token', null);
     if (chan) { sb.removeChannel(chan); chan = null; }
   }
 
@@ -153,15 +166,16 @@
 
   async function startSenior(name) {
     const r = await rpc('hyodo_create_household', { p_elder_name: name });
-    token = r.token; role = 'senior'; store.set('token', token); store.set('role', role);
+    token = r.token; role = 'senior'; store.set('senior.token', token);
+    history.replaceState(null, '', location.pathname);
     ui.route = 'pair'; ui.ctx = {};
     await refresh(); render();
   }
 
   async function startGuardian(code) {
     const r = await rpc('hyodo_pair', { p_code: code });
-    token = r.token; role = 'guardian'; store.set('token', token); store.set('role', role);
-    history.replaceState(null, '', location.pathname);
+    token = r.token; role = 'guardian'; store.set('guardian.token', token);
+    history.replaceState(null, '', location.pathname + '#/guardian');
     pendingPaired = true;
     ui.route = 'home';
     await refresh();
@@ -514,6 +528,8 @@
     html += '<div class="foot">' +
       (S.pair_code ? '<div>다른 가족을 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
                    : '<div><button class="g-btn" data-g="new-code">다른 가족 연결 코드 만들기</button></div>') +
+      '<div>보호자 화면 주소: <b>' + esc(location.origin + location.pathname) + '#/guardian</b></div>' +
+      (store.get('senior.token') ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>' : '') +
       '<div><button class="g-btn" data-g="leave">이 폰 연결 끊기</button></div></div></div>';
 
     $app.innerHTML = html;
@@ -613,7 +629,7 @@
       if (g === 'notify') return Notification.requestPermission().then(() => renderGuardian());
       if (g === 'new-code') return guardianDo(() => rpc('hyodo_refresh_pair_code', { p_token: token }));
       if (g === 'leave') {
-        if (b.dataset.confirm) { forget(); ui.route = 'start'; return render(); }
+        if (b.dataset.confirm) { forget(); history.replaceState(null, '', location.pathname); ui.route = 'start'; return render(); }
         b.dataset.confirm = '1'; b.textContent = '정말 끊을까요? 한 번 더 누르세요'; return;
       }
     }
@@ -689,7 +705,16 @@
 
   /* ---------- 시작 ---------- */
   if (token) { ui.route = 'home'; refresh().then(render); } else render();
-  window.addEventListener('hashchange', () => { if (!token) render(); });
+  // 주소의 #/guardian 등을 바꾸면 그 역할 화면으로 바꿔 보여 준다
+  window.addEventListener('hashchange', () => {
+    const r = pickRole();
+    if (r === role && token) return;
+    if (chan) { sb.removeChannel(chan); chan = null; }
+    stopAlarm();
+    role = r; token = r ? store.get(r + '.token') : null; S = null;
+    ui.route = token ? 'home' : 'start'; ui.ctx = {}; ui.voiceOpen = false;
+    if (token) refresh().then(render); else render();
+  });
 
   // 어르신 폰: 시계·알람은 20초마다, 서버 상태는 1분마다. 보호자 폰: 1분마다.
   setInterval(() => {

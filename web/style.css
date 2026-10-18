@@ -184,4 +184,5 @@ img { max-width: 100%; }
 .log { display: grid; gap: 6px; font-size: 14px; }
 .log div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; }
 .log time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
-.foot { font-size: 13px; color: var(--muted); display: grid; gap: 8px; }
+.foot { font-size: 13px; color: var(--muted); display: grid; gap: 8px; overflow-wrap: anywhere; }
+.foot a { color: var(--photo); font-weight: 600; }
