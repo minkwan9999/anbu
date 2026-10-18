@@ -184,7 +184,20 @@
 
   /* ---------- 어르신 화면 ---------- */
   const contacts = () => (S && S.contacts) || [];
-  const nextMed = () => S.meds.find(m => m.status !== 'ok');
+  // 같은 시간에 먹는 약은 한 묶음으로 다룬다: { time, label: '혈압약, 당뇨약', ids }
+  function groupByTime(meds) {
+    const groups = [];
+    meds.forEach(m => {
+      const g = groups.find(x => x.time === m.time);
+      if (g) { g.label += ', ' + m.label; g.ids.push(m.id); }
+      else groups.push({ time: m.time, label: m.label, ids: [m.id] });
+    });
+    return groups;
+  }
+  const nextGroup = () => groupByTime(S.meds.filter(m => m.status !== 'ok'))[0];
+  const minsOf = hm => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
+  const nowMins = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  function snoozeIds(ids) { const sn = snoozes(); ids.forEach(id => { sn[id] = Date.now() + 10 * 60000; }); store.set('snooze', JSON.stringify(sn)); }
 
   function renderSenior() {
     const r = ui.route;
@@ -200,11 +213,11 @@
           : '<div class="pair-box"><p>연결 코드 시간이 지났어요</p><button class="ghost-btn" data-act="new-code">새 코드 받기</button></div>') +
         '<button class="ghost-btn" data-go="home">다 했어요</button></div>';
     } else if (r === 'home') {
-      const nm = nextMed();
+      const nm = nextGroup();
       html += '<div><div class="s-date">' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + days[d.getDay()] + '요일</div>' +
         '<div class="s-time">' + sayTime(nowHM()) + '</div></div>' +
         (S.meds.length === 0 ? '' : nm
-          ? '<div class="s-next">💊 <span>다음 약 <b>' + sayTime(nm.time) + '</b><br>' + esc(nm.label) + '</span></div>'
+          ? '<div class="s-next">💊 <span>' + (nowMins() > minsOf(nm.time) ? '아직 안 드신 약' : '다음 약') + ' <b>' + sayTime(nm.time) + '</b><br>' + esc(nm.label) + '</span></div>'
           : '<div class="s-next">✅ <span>오늘 약 다 드셨어요</span></div>') +
         '<div class="big-grid">' +
           '<button class="big b-call" data-go="call">' + ICON.call + '전화하기</button>' +
@@ -251,7 +264,7 @@
         '<h2>되돌렸어요</h2><p>' + esc(ui.ctx.label) + '은 아직 안 드신 걸로 할게요.<br>드신 다음에 다시 눌러 주세요</p>' +
         '<button class="ghost-btn" data-go="home">처음으로</button></div>';
     } else if (r === 'medinfo' || r === 'nomed') {
-      const left = S.meds.filter(m => m.status !== 'ok');
+      const left = groupByTime(S.meds.filter(m => m.status !== 'ok'));
       html += '<div class="center s-center"><div class="ring" style="background:var(--pill)">💊</div>' +
         (r === 'nomed' ? '<h2>지금 드실 약은 없어요</h2>' : '') +
         (left.length ? '<p>' + left.map(m => sayTime(m.time) + ' ' + esc(m.label)).join('<br>') + '</p>'
@@ -283,21 +296,19 @@
     try {
       const r = await rpc('hyodo_take_med', { p_token: token });
       if (r.none) { await refresh(); return go('nomed'); }
-      // 새로 불러오기 전에 알람이 다시 울리지 않도록 바로 표시해 둔다
-      const m = S.meds.find(x => x.label === r.label && x.status !== 'ok');
-      if (m) m.status = 'ok';
+      // 새로 불러오기 전에 알람이 다시 울리지 않도록 같은 시간 약을 바로 표시해 둔다
+      S.meds.forEach(x => { if (x.time === r.time) x.status = 'ok'; });
       ping();
-      go('took', { log_id: r.log_id, label: r.label });
+      go('took', { log_ids: r.log_ids || [r.log_id], label: r.label, time: r.time });
       refresh();
     } catch (e) { toast('기록하지 못했어요. 다시 눌러 주세요'); }
   }
 
   async function undoMed() {
     try {
-      await rpc('hyodo_undo_med', { p_token: token, p_log_id: ui.ctx.log_id });
+      await rpc('hyodo_undo_meds', { p_token: token, p_log_ids: ui.ctx.log_ids });
       // 아직 안 드셨다고 하셨으니 알람은 10분 뒤에 다시
-      const m = S.meds.find(x => x.label === ui.ctx.label);
-      if (m) { const sn = snoozes(); sn[m.id] = Date.now() + 10 * 60000; store.set('snooze', JSON.stringify(sn)); }
+      snoozeIds(S.meds.filter(x => x.time === ui.ctx.time).map(x => x.id));
       ping();
       go('undone', { label: ui.ctx.label });
       refresh();
@@ -398,19 +409,21 @@
   }
   function snoozes() { try { return JSON.parse(store.get('snooze') || '{}'); } catch (e) { return {}; } }
 
-  function dueMed() {
+  function dueGroup() {
     if (!S || role !== 'senior') return null;
-    const d = new Date(), mins = d.getHours() * 60 + d.getMinutes(), sn = snoozes();
-    return S.meds.find(m => {
+    const mins = nowMins(), sn = snoozes();
+    return groupByTime(S.meds.filter(m => {
       if (m.status === 'ok') return false;
-      const [h, mm] = m.time.split(':').map(Number), t = h * 60 + mm;
+      const t = minsOf(m.time);
       if (mins < t || mins > t + 120) return false;           // 2시간 지나면 알람은 그만
       return !(sn[m.id] && Date.now() < sn[m.id]);
-    }) || null;
+    }))[0] || null;
   }
 
   function checkAlarm() {
-    const m = dueMed();
+    const m = dueGroup();
+    // 알람이 떠 있는 동안 같은 시간 약이 추가되면 화면을 고친다
+    if (m && ui.alarm && m.time === ui.alarm.time && m.ids.join() !== ui.alarm.ids.join()) { ui.alarm = m; render(); }
     if (m && !ui.alarm) {
       ui.alarm = m;
       render();
@@ -464,7 +477,7 @@
   function renderGuardian() {
     guardianDirty = false;
     const ok = S.meds.filter(m => m.status === 'ok').length;
-    const missed = S.meds.filter(m => m.status === 'miss');
+    const missed = groupByTime(S.meds.filter(m => m.status === 'miss'));
     const stale = Date.now() - new Date(S.last_active).getTime() > 3 * 3600 * 1000;
     let html = '<div class="guardian">' +
       '<div class="g-top"><span class="g-avatar">' + esc(S.elder_name.charAt(0)) + '</span>' +
@@ -557,8 +570,8 @@
     let seen; try { seen = JSON.parse(store.get('notified') || '{}'); } catch (e) { seen = {}; }
     if (seen.day !== today) seen = { day: today, ids: [] };
     missed.forEach(m => {
-      if (seen.ids.includes(m.id)) return;
-      seen.ids.push(m.id);
+      if (m.ids.every(id => seen.ids.includes(id))) return;
+      seen.ids.push(...m.ids);
       try { new Notification('효도비서', { body: S.elder_name + ' 님이 ' + m.label + '을 30분 넘게 안 드셨어요', icon: 'icon.svg' }); } catch (e) { /* 알림 불가 */ }
     });
     store.set('notified', JSON.stringify(seen));
@@ -607,7 +620,7 @@
       if (a === 'show-pair') return go('pair');
       if (a === 'new-code') return rpc('hyodo_refresh_pair_code', { p_token: token }).then(refresh).catch(() => toast('코드를 받지 못했어요'));
       if (a === 'alarm-snooze') {
-        const sn = snoozes(); sn[ui.alarm.id] = Date.now() + 10 * 60000; store.set('snooze', JSON.stringify(sn));
+        snoozeIds(ui.alarm.ids);
         rpc('hyodo_log', { p_token: token, p_msg: ui.alarm.label + ' 알람을 10분 미루셨어요' }).then(() => ping()).catch(() => {});
         stopAlarm(); return render();
       }
