@@ -221,7 +221,7 @@
       const ji = ui.joinInfo;
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>' + (demo ? '체험용 보호자 폰' : '보호자 폰') + '</h1>' +
         (ji && !ji.bad && !ji.fresh ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo && ji.elder_name !== '체험 어르신' ? '(체험용)' : '') + '과 연결해요. 내 정보를 넣고 연결하기를 눌러 주세요.</p>'
-                       : '<p>어르신 폰에 보이는 숫자 6자리를 넣거나, 어르신 폰의 QR을 이 폰 카메라로 찍어 주세요.</p>') +
+                       : '<p>먼저 내 정보를 등록해요. 어르신과의 연결은 지금 아래 연결 코드를 넣어도 되고, 등록한 뒤 <b>＋ 어르신 추가</b>에서 해도 돼요.</p>') +
         '<div class="field"><label for="guardian-rel">내 사진 · 어르신과의 관계 · 내 이름 <span>(사진과 이름은 어르신 폰 "전화하기"에 나와요)</span></label>' +
           '<div class="join-who"><button type="button" class="thumb join-thumb" data-start="join-photo" aria-label="내 사진 고르기">' +
             (ui.joinPhoto ? '<img src="' + ui.joinPhoto + '" alt="">' : '사진') + '</button>' +
