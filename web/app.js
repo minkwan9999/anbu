@@ -24,7 +24,7 @@
   }
 
   // 어르신·보호자 토큰을 따로 둔다. 한 기기(예: PC 하나)로 둘 다 시험해도 서로 덮어쓰지 않는다.
-  // 주소: 기본 = 어르신 화면, #/guardian = 보호자(맡은 어르신 목록), #/guardian/h/<가구> = 한 어르신 상세,
+  // 주소: 기본 = 어르신 화면, #/guardian = 보호자(연결된 어르신 목록), #/guardian/h/<가구> = 한 어르신 상세,
   //       #/join/코드 = 보호자 연결 (이미 보호자면 목록에 어르신 추가)
   // 모드: 'real' 실제 사용 / 'demo' 체험(테스트용). 체험 연결 정보는 'demo.' 칸에 따로 둬서 실제 연결과 섞이지 않는다.
   let mode = store.get('mode') === 'demo' ? 'demo' : 'real';
@@ -55,7 +55,7 @@
   let role = pickRole();
   let token = role ? store.get(tkey(role)) : null;
   let S = null;              // 서버 상태: 어르신 화면, 또는 보호자가 보는 한 어르신 (hyodo_state / hyodo_g_state)
-  let G = null;              // 보호자: 맡은 어르신 목록 (hyodo_g_list)
+  let G = null;              // 보호자: 연결된 어르신 목록 (hyodo_g_list)
   const hashHid = () => (location.hash.match(/^#\/guardian\/h\/([0-9a-f-]{36})/) || [])[1] || null;
   const hashJoin = () => (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1] || null;
   const ui = { route: 'home', ctx: {}, alarm: null, heard: '' };
@@ -256,7 +256,7 @@
     toast('등록했어요. 이제 어르신을 연결해 주세요');
   }
 
-  // 보호자 연결: 처음이면 보호자 계정을 만들고, 이미 보호자면 맡은 어르신 목록에 추가한다
+  // 보호자 연결: 처음이면 보호자 계정을 만들고, 이미 보호자면 연결된 어르신 목록에 추가한다
   async function startGuardian(code, name, rel, phone, photo) {
     const r = await rpc('hyodo_g_join', { p_code: code, p_token: store.get(tkey('guardian')) || null, p_name: name || null, p_demo: mode === 'demo', p_rel: rel || null, p_phone: phone || null, p_photo: photo || null });
     ui.joinPhoto = null; ui.joinDraft = null; ui.joinInfo = null;
@@ -597,7 +597,7 @@
     const missed = groupByTime(S.meds.filter(m => m.status === 'miss'));
     const stale = Date.now() - new Date(S.last_active).getTime() > 3 * 3600 * 1000;
     let html = '<div class="guardian">' +
-      '<button class="g-back" data-g="to-list">← 맡은 어르신 목록</button>' +
+      '<button class="g-back" data-g="to-list">← 연결된 어르신 목록</button>' +
       '<div class="g-top"><span class="g-avatar">' + esc(S.elder_name.charAt(0)) + '</span>' +
       '<div class="g-name">' + (editingName
         ? '<form class="name-edit" id="name-form"><input id="elder-name-g" value="' + esc(S.elder_name) + '" maxlength="20" aria-label="어르신 성함">' +
@@ -674,7 +674,7 @@
     loadPhotos();
   }
 
-  // 보호자 첫 화면: 맡은 어르신 목록. 문제가 있는 분이 맨 위.
+  // 보호자 첫 화면: 연결된 어르신 목록. 문제가 있는 분이 맨 위.
   let editingMyName = false;
   function renderGuardianList() {
     const rank = h => h.miss > 0 ? 0 : h.due > 0 ? 1 : 2;
@@ -684,7 +684,7 @@
         ? '<form class="name-edit" id="my-name-form"><input id="my-name" value="' + esc(G.name) + '" maxlength="20" aria-label="내 이름">' +
           '<button class="g-btn primary" type="submit">저장</button><button class="g-btn" type="button" data-g="cancel-my-name">취소</button></form>'
         : '<div class="name-row"><h1>' + esc(G.name) + ' 님</h1><button class="g-btn small" data-g="edit-my-name">수정</button></div>') +
-      '<small>맡은 어르신 ' + list.length + '명</small></div></div>';
+      '<small>연결된 어르신 ' + list.length + '명</small></div></div>';
     html += pushNotice();
     html += list.length ? '<div class="elder-list">' + list.map(h => {
       const status = h.miss > 0 ? '<span class="pill-chip st-miss">⚠️ 약 ' + h.miss + '개 안 드심</span>'
