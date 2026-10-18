@@ -191,16 +191,21 @@
   const CONTACT_REL = { '요양보호사': '선생님', '사회복지사': '선생님', '': '기타' };
   function renderStart() {
     const join = (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1];
-    const step = ui.route === 'start-senior' || ui.route === 'start-guardian' ? ui.route : (join ? 'start-guardian' : 'start');
+    const step = ['start-senior', 'start-guardian', 'demo-role'].includes(ui.route) ? ui.route : (join ? 'start-guardian' : 'start');
     const demo = mode === 'demo';
     // 실제 사용 시작 화면(기본 주소)과 체험 시작 화면(#/demo)은 주소로 완전히 나눈다
-    if (step === 'start' && demo) {
+    if (step === 'demo-role') {
+      $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 폰 두 대</span><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
+        '<button class="role-btn" data-start="demo-senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
+        '<button class="role-btn" data-start="demo-guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button>' +
+        '<button class="small-link" type="button" data-start="back">← 뒤로</button></div>';
+    } else if (step === 'start' && demo) {
       const resume = hasDemo();
       $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 테스트용</span><h1>효도비서 체험</h1>' +
         '<p>여기서 만든 체험 데이터는 실제 사용과 따로 저장돼요.</p>' +
         (resume ? '<button class="role-btn" data-start="demo-resume"><b>▶ 하던 체험 이어서 하기</b><span>이 폰에서 하던 체험 화면으로 돌아가요.</span></button>' : '') +
         '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
-        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>이 폰을 체험용 어르신으로 시작해요. 다른 폰으로 QR을 찍으면 그 폰이 체험용 보호자가 돼요.</span></button></div>';
+        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>폰마다 어르신 폰·보호자 폰을 골라, 실제와 똑같이 연결해서 써 봐요.</span></button></div>';
     } else if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
@@ -214,8 +219,7 @@
     } else {
       const ji = ui.joinInfo;
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>' + (demo ? '체험용 보호자 폰' : '보호자 폰') + '</h1>' +
-        (ji && ji.fresh ? '<p>먼저 체험용 보호자로 등록해요. <b>연결 코드는 비워 두세요.</b> 등록한 뒤 체험 어르신과 연결해 봐요.</p>'
-         : ji && !ji.bad ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo && ji.elder_name !== '체험 어르신' ? '(체험용)' : '') + '과 연결해요. 내 정보를 넣고 연결하기를 눌러 주세요.</p>'
+        (ji && !ji.bad && !ji.fresh ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo && ji.elder_name !== '체험 어르신' ? '(체험용)' : '') + '과 연결해요. 내 정보를 넣고 연결하기를 눌러 주세요.</p>'
                        : '<p>어르신 폰에 보이는 숫자 6자리를 넣거나, 어르신 폰의 QR을 이 폰 카메라로 찍어 주세요.</p>') +
         '<div class="field"><label for="guardian-rel">내 사진 · 어르신과의 관계 · 내 이름 <span>(사진과 이름은 어르신 폰 "전화하기"에 나와요)</span></label>' +
           '<div class="join-who"><button type="button" class="thumb join-thumb" data-start="join-photo" aria-label="내 사진 고르기">' +
@@ -606,18 +610,6 @@
         '<span>' + sayTime(m.time) + ' 약이에요. 전화해 보시겠어요?</span></div>';
     });
 
-    if (S.demo) {
-      html += store.get('demo.senior.token')
-        ? '<div class="notice demo-guide"><b>체험 중이에요</b><ol>' +
-          '<li>아래에서 약과 연락처를 넣어 보세요</li>' +
-          '<li>맨 위 <b>👵 어르신</b>을 누르면 어르신 화면으로 바뀌어요</li>' +
-          '<li><b>🔔 알람</b>을 누르면 약 알람을 바로 울려 볼 수 있어요</li></ol></div>'
-        : '<div class="notice demo-guide"><b>체험 중이에요 (폰 두 대)</b><ol>' +
-          '<li>아래에서 약과 연락처를 넣으면 어르신 폰에 바로 나타나요</li>' +
-          '<li>어르신 폰에서 "약 먹었어"·"사진 보내기"를 누르면 이 화면에 바로 와요</li>' +
-          '<li>알림을 켜 두면, 약 시간 30분이 지나도 안 드셨을 때 이 폰으로 알림이 와요</li></ol></div>';
-    }
-
     html += pushNotice();
 
     html += '<div class="card"><h2>오늘 약 <span>' + ok + ' / ' + S.meds.length + ' 드심</span></h2>' +
@@ -704,12 +696,7 @@
         '<span class="elder-main"><b>' + esc(h.elder_name) + ' 님' + (h.demo ? ' <span class="demo-tag">체험</span>' : '') + '</b>' + status + '</span>' +
         '<small>' + minsAgo(h.last_active) + '</small></a>';
     }).join('') + '</div>'
-      : mode === 'demo' && store.get('demo.senior.token')
-        ? '<div class="notice demo-guide"><b>이제 체험 어르신과 연결해 봐요</b><ol>' +
-          '<li>맨 위 <b>👵 어르신</b>을 누르면 체험 어르신 폰의 <b>연결 코드</b>가 보여요</li>' +
-          '<li>다시 <b>👨‍👩‍👧 보호자</b>로 와서 <b>＋ 어르신 추가</b>에 그 코드를 넣어요</li>' +
-          '<li>연결되면 내 사진·이름·번호가 어르신 폰 "전화하기"에 들어가요</li></ol></div>'
-        : '<div class="notice"><span>아직 연결된 어르신이 없어요. <b>＋ 어르신 추가</b>를 누르고 어르신 폰에 나온 숫자 6자리를 넣거나, 그 QR을 이 폰 카메라로 찍어 주세요.</span></div>';
+      : '<div class="notice"><span>아직 연결된 어르신이 없어요. <b>＋ 어르신 추가</b>를 누르고 어르신 폰에 나온 숫자 6자리를 넣거나, 그 QR을 이 폰 카메라로 찍어 주세요.</span></div>';
     html += '<button class="wide-btn add-elder" data-g="add">＋ 어르신 추가</button>';
     // 체험 중에는 실제 사용용 안내(주소·나가기)를 숨긴다. 체험은 맨 위 막대의 '끝내기'로 끝낸다
     if (mode === 'demo') { $app.innerHTML = html + '</div>'; return; }
@@ -728,7 +715,6 @@
       '<div class="field"><label for="add-code">연결 코드</label><input id="add-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
       '<div class="err" id="err"></div>' +
       '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
-      (mode === 'demo' && store.get('demo.senior.token') ? '<button class="g-btn" type="button" data-g="fill-demo-code">체험 어르신 코드 넣기</button>' : '') +
       '<button class="small-link" type="button" data-g="to-list">← 목록으로</button></form>';
     if (join) setTimeout(() => document.getElementById('f-add').requestSubmit(), 0);
   }
@@ -833,8 +819,9 @@
     }
     if (st === 'demo2') {
       store.set('demo.senior.token', null); store.set('demo.guardian.token', null);
-      setMode('demo'); ui.route = 'start-senior'; return renderStart();
+      setMode('demo'); ui.route = 'demo-role'; return renderStart();
     }
+    if (st === 'demo-senior' || st === 'demo-guardian') { ui.route = 'start-' + st.slice(5); ui.joinInfo = null; return renderStart(); }
     if (st === 'senior' || st === 'guardian') { setMode('real'); ui.route = 'start-' + st; ui.joinInfo = null; return renderStart(); }
     if (st === 'back') {
       // 체험 쪽에서 뒤로 가면 체험 시작 화면, 실제 쪽이면 실제 시작 화면
@@ -886,12 +873,6 @@
       const g = b.dataset.g;
       if (g === 'to-list') { ui.forceList = true; ui.route = 'home'; if (location.hash === '#/guardian') return refresh().then(render); location.hash = '#/guardian'; return; }
       if (g === 'add') { ui.route = 'g-add'; return render(); }
-      if (g === 'fill-demo-code') {
-        return rpc('hyodo_state', { p_token: store.get('demo.senior.token') }).then(async st => {
-          if (!st.pair_code) { await rpc('hyodo_refresh_pair_code', { p_token: store.get('demo.senior.token') }); st = await rpc('hyodo_state', { p_token: store.get('demo.senior.token') }); }
-          document.getElementById('add-code').value = st.pair_code;
-        }).catch(() => toast('코드를 가져오지 못했어요'));
-      }
       if (g === 'demo') { b.disabled = true; return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); }); }
       if (g === 'edit-my-name') { editingMyName = true; render(); return document.getElementById('my-name').select(); }
       if (g === 'cancel-my-name') { editingMyName = false; return render(); }
