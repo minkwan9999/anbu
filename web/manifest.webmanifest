@@ -1,0 +1,15 @@
+{
+  "name": "효도비서",
+  "short_name": "효도비서",
+  "description": "어르신 폰과 보호자 폰을 잇는 시니어 AI 비서",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef1f4",
+  "theme_color": "#18222e",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
