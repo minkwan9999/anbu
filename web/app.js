@@ -23,37 +23,43 @@
   }
 
   // 어르신·보호자 토큰을 따로 둔다. 한 기기(예: PC 하나)로 둘 다 시험해도 서로 덮어쓰지 않는다.
-  // 주소: 기본 = 어르신 화면, #/guardian = 보호자 화면, #/join/코드 = 보호자 연결
+  // 주소: 기본 = 어르신 화면, #/guardian = 보호자(맡은 어르신 목록), #/guardian/h/<가구> = 한 어르신 상세,
+  //       #/join/코드 = 보호자 연결 (이미 보호자면 목록에 어르신 추가)
   (function migrate() {
     const t = store.get('token'), r = store.get('role');
     if (t && r) { store.set(r + '.token', t); store.set('token', null); store.set('role', null); }
   })();
   function pickRole() {
     const h = location.hash, s = store.get('senior.token'), g = store.get('guardian.token');
-    if (/^#\/join\//.test(h)) return null;
+    if (/^#\/join\//.test(h)) return g ? 'guardian' : null;
     if (/^#\/guardian/.test(h)) return g ? 'guardian' : null;
     if (/^#\/senior/.test(h)) return s ? 'senior' : null;
     return s ? 'senior' : g ? 'guardian' : null;
   }
   let role = pickRole();
   let token = role ? store.get(role + '.token') : null;
-  let S = null;              // 서버 상태 (hyodo_state)
+  let S = null;              // 서버 상태: 어르신 화면, 또는 보호자가 보는 한 어르신 (hyodo_state / hyodo_g_state)
+  let G = null;              // 보호자: 맡은 어르신 목록 (hyodo_g_list)
+  const hashHid = () => (location.hash.match(/^#\/guardian\/h\/([0-9a-f-]{36})/) || [])[1] || null;
+  const hashJoin = () => (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1] || null;
   const ui = { route: 'home', ctx: {}, alarm: null, heard: '' };
 
   function forget() {
-    token = null; role = null; S = null;
     if (role) store.set(role + '.token', null);
-    if (chan) { sb.removeChannel(chan); chan = null; }
+    token = null; role = null; S = null; G = null;
+    setChannels([]);
   }
 
   /* ---------- 실시간: 바뀌면 서로 알려 주고 각자 다시 불러온다 ---------- */
-  let chan = null;
+  // 어르신 폰·보호자 상세 화면은 가구 채널 하나, 보호자 목록 화면은 맡은 가구 채널 모두를 듣는다
+  const chans = new Map();
   let pendingPaired = false;
+  function setChannels(names) {
+    for (const [n, c] of chans) if (!names.includes(n)) { sb.removeChannel(c); chans.delete(n); }
+    names.forEach(n => { if (!chans.has(n)) chans.set(n, joinChannel(n)); });
+  }
   function joinChannel(name) {
-    if (chan && chan._hyodo === name) return;
-    if (chan) sb.removeChannel(chan);
-    chan = sb.channel('hyodo-' + name, { config: { broadcast: { self: false } } });
-    chan._hyodo = name;
+    const chan = sb.channel('hyodo-' + name, { config: { broadcast: { self: false } } });
     chan.on('broadcast', { event: 'changed' }, () => refresh())
         .on('broadcast', { event: 'paired' }, () => {
           if (role === 'senior') { toast('보호자 폰과 연결됐어요'); if (ui.route === 'pair') go('home'); }
@@ -62,17 +68,32 @@
         .subscribe(status => {
           if (status === 'SUBSCRIBED' && pendingPaired) { pendingPaired = false; ping('paired'); }
         });
+    return chan;
   }
-  function ping(event) { if (chan) chan.send({ type: 'broadcast', event: event || 'changed', payload: {} }); }
+  function ping(event) { chans.forEach(c => c.send({ type: 'broadcast', event: event || 'changed', payload: {} })); }
 
   async function refresh() {
     if (!token) return render();
     try {
-      S = await rpc('hyodo_state', { p_token: token });
-      joinChannel(S.channel);
+      if (role === 'senior') {
+        S = await rpc('hyodo_state', { p_token: token });
+        setChannels([S.channel]);
+      } else if (hashHid()) {
+        S = await rpc('hyodo_g_state', { p_token: token, p_hid: hashHid() });
+        setChannels([S.channel]);
+      } else {
+        G = await rpc('hyodo_g_list', { p_token: token }); S = null;
+        // 가족처럼 어르신이 한 분이면 목록 없이 바로 그 어르신 화면으로
+        if (G.households.length === 1 && !ui.forceList && !hashJoin() && ui.route !== 'g-add') {
+          location.replace('#/guardian/h/' + G.households[0].hid);
+          return;
+        }
+        setChannels(G.households.map(h => h.channel));
+      }
       document.documentElement.style.setProperty('--scale', role === 'senior' ? S.scale : 1);
     } catch (e) {
       if (!token) return render();
+      if (e.message === 'forbidden') { location.replace('#/guardian'); return; }   // 연결이 끊긴 어르신
       toast('인터넷 연결을 확인해 주세요');
       return;
     }
@@ -136,9 +157,13 @@
   function render() {
     renderDemoBar();
     if (!token) return renderStart();
-    if (!S) { $app.innerHTML = '<div class="center"><p>불러오는 중…</p></div>'; return; }
+    if (role === 'guardian' && ui.route === 'g-add') return renderGuardianAdd();
+    if (role === 'guardian' && !hashHid()) return G ? renderGuardianList() : loading();
+    if (!S) return loading();
     if (role === 'senior') return renderSenior();
     return renderGuardian();
+  }
+  function loading() { $app.innerHTML = '<div class="center"><p>불러오는 중…</p></div>';
   }
 
   /* ---------- 처음 시작 ---------- */
@@ -159,11 +184,12 @@
     } else {
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>보호자 폰</h1>' +
         '<p>어르신 폰에 보이는 숫자 6자리를 넣거나, 어르신 폰의 QR을 이 폰 카메라로 찍어 주세요.</p>' +
+        '<div class="field"><label for="guardian-name">내 이름 (기록에 "누가 바꿨는지" 남아요)</label><input id="guardian-name" maxlength="20" placeholder="예: 딸 지은, 요양보호사 김미영" autocomplete="off"></div>' +
         '<div class="field"><label for="pair-code">연결 코드</label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
         '<div class="err" id="err"></div>' +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></form>';
-      if (join) setTimeout(() => document.getElementById('f-guardian').requestSubmit(), 0);
+      if (join) document.getElementById('guardian-name').focus();
     }
   }
 
@@ -175,13 +201,14 @@
     await refresh(); render();
   }
 
-  async function startGuardian(code) {
-    const r = await rpc('hyodo_pair', { p_code: code });
+  // 보호자 연결: 처음이면 보호자 계정을 만들고, 이미 보호자면 맡은 어르신 목록에 추가한다
+  async function startGuardian(code, name) {
+    const r = await rpc('hyodo_g_pair', { p_code: code, p_token: store.get('guardian.token') || null, p_name: name || null });
     token = r.token; role = 'guardian'; store.set('guardian.token', token);
-    history.replaceState(null, '', location.pathname + '#/guardian');
+    history.replaceState(null, '', location.pathname + '#/guardian/h/' + r.hid);
     pendingPaired = true;
-    ui.route = 'home';
-    await refresh();
+    ui.route = 'home'; ui.forceList = false;
+    await refresh(); render();
     toast('어르신 폰과 연결됐어요');
   }
 
@@ -458,9 +485,10 @@
   let guardianDirty = false;
 
   function renderGuardianSafe() {
+    if (ui.route === 'g-add') return;   // 연결 코드를 넣는 중에는 다시 그리지 않는다
     const a = document.activeElement;
     if (a && $app.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) { guardianDirty = true; return; }
-    renderGuardian();
+    render();
   }
 
   function minsAgo(ts) {
@@ -493,6 +521,7 @@
     const missed = groupByTime(S.meds.filter(m => m.status === 'miss'));
     const stale = Date.now() - new Date(S.last_active).getTime() > 3 * 3600 * 1000;
     let html = '<div class="guardian">' +
+      '<button class="g-back" data-g="to-list">← 맡은 어르신 목록</button>' +
       '<div class="g-top"><span class="g-avatar">' + esc(S.elder_name.charAt(0)) + '</span>' +
       '<div class="g-name">' + (editingName
         ? '<form class="name-edit" id="name-form"><input id="elder-name-g" value="' + esc(S.elder_name) + '" maxlength="20" aria-label="어르신 성함">' +
@@ -504,7 +533,7 @@
         '<span>' + sayTime(m.time) + ' 약이에요. 전화해 보시겠어요?</span></div>';
     });
 
-    if (isDemo()) {
+    if (S.demo) {
       html += '<div class="notice demo-guide"><b>체험 중이에요</b><ol>' +
         '<li>아래에서 약과 연락처를 넣어 보세요</li>' +
         '<li>맨 위 <b>👵 어르신</b>을 누르면 어르신 화면으로 바뀌어요</li>' +
@@ -559,15 +588,56 @@
       (S.activity.length ? S.activity.map(l => '<div><time>' + esc(l.t) + '</time><span>' + esc(l.msg) + '</span></div>').join('') : '<span class="empty">아직 기록이 없어요.</span>') +
       '</div></div>';
 
-    html += '<div class="foot">' + (isDemo() ? '' :
-      (S.pair_code ? '<div>다른 가족을 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
-                   : '<div><button class="g-btn" data-g="new-code">다른 가족 연결 코드 만들기</button></div>') +
-      '<div>보호자 화면 주소: <b>' + esc(location.origin + location.pathname) + '#/guardian</b></div>' +
-      (store.get('senior.token') ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>' : '') +
-      '<div><button class="g-btn" data-g="leave">이 폰 연결 끊기</button></div>') + '</div></div>';
+    html += '<div class="foot">' + (S.demo ? '' :
+      (S.pair_code ? '<div>다른 가족·보호자를 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
+                   : '<div><button class="g-btn" data-g="new-code">다른 가족·보호자 연결 코드 만들기</button></div>') +
+      '<div><button class="g-btn" data-g="unlink">' + esc(S.elder_name) + ' 님과 연결 끊기</button></div>') + '</div></div>';
 
     $app.innerHTML = html;
     loadPhotos();
+  }
+
+  // 보호자 첫 화면: 맡은 어르신 목록. 문제가 있는 분이 맨 위.
+  let editingMyName = false;
+  function renderGuardianList() {
+    const rank = h => h.miss > 0 ? 0 : h.due > 0 ? 1 : 2;
+    const list = G.households.slice().sort((a, b) => rank(a) - rank(b));
+    let html = '<div class="guardian">' +
+      '<div class="g-top"><div class="g-name">' + (editingMyName
+        ? '<form class="name-edit" id="my-name-form"><input id="my-name" value="' + esc(G.name) + '" maxlength="20" aria-label="내 이름">' +
+          '<button class="g-btn primary" type="submit">저장</button><button class="g-btn" type="button" data-g="cancel-my-name">취소</button></form>'
+        : '<div class="name-row"><h1>' + esc(G.name) + ' 님</h1><button class="g-btn small" data-g="edit-my-name">수정</button></div>') +
+      '<small>맡은 어르신 ' + list.length + '명</small></div></div>';
+    html += pushNotice();
+    html += list.length ? '<div class="elder-list">' + list.map(h => {
+      const status = h.miss > 0 ? '<span class="pill-chip st-miss">⚠️ 약 ' + h.miss + '개 안 드심</span>'
+        : h.due > 0 ? '<span class="pill-chip st-due">💊 지금 드실 시간</span>'
+        : h.total === 0 ? '<span class="pill-chip st-wait">약 없음</span>'
+        : h.ok === h.total ? '<span class="pill-chip st-ok">✅ 오늘 약 다 드심</span>'
+        : '<span class="pill-chip st-wait">다음 ' + sayTime(h.next_time) + ' · ' + h.ok + '/' + h.total + '</span>';
+      return '<a class="elder-card' + (h.miss > 0 ? ' warn' : '') + '" href="#/guardian/h/' + h.hid + '">' +
+        '<span class="g-avatar">' + esc(h.elder_name.charAt(0)) + '</span>' +
+        '<span class="elder-main"><b>' + esc(h.elder_name) + ' 님' + (h.demo ? ' <span class="demo-tag">체험</span>' : '') + '</b>' + status + '</span>' +
+        '<small>' + minsAgo(h.last_active) + '</small></a>';
+    }).join('') + '</div>' : '<div class="notice"><span>아직 연결된 어르신이 없어요.</span></div>';
+    html += '<button class="wide-btn add-elder" data-g="add">＋ 어르신 추가</button>';
+    html += '<div class="foot">' +
+      '<div>보호자 화면 주소: <b>' + esc(location.origin + location.pathname) + '#/guardian</b></div>' +
+      (store.get('senior.token') ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>'
+                                 : '<div><button class="g-btn" data-g="demo">📱 이 폰에서 어르신 화면 체험하기</button></div>') +
+      '<div><button class="g-btn" data-g="leave">이 폰에서 보호자 나가기</button></div></div></div>';
+    $app.innerHTML = html;
+  }
+
+  function renderGuardianAdd() {
+    const join = hashJoin();
+    $app.innerHTML = '<form class="start" id="f-add"><h1>어르신 추가</h1>' +
+      '<p>추가할 어르신 폰에서 <b>보호자 폰 연결</b>을 누르면 나오는 숫자 6자리를 넣거나, 그 QR을 이 폰 카메라로 찍어 주세요.</p>' +
+      '<div class="field"><label for="add-code">연결 코드</label><input id="add-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
+      '<div class="err" id="err"></div>' +
+      '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
+      '<button class="small-link" type="button" data-g="to-list">← 목록으로</button></form>';
+    if (join) setTimeout(() => document.getElementById('f-add').requestSubmit(), 0);
   }
 
   async function loadPhotos() {
@@ -575,7 +645,7 @@
       const id = Number(img.dataset.pid);
       if (photoCache.has(id)) continue;
       try {
-        const data = await rpc('hyodo_photo', { p_token: token, p_id: id });
+        const data = await rpc('hyodo_g_photo', { p_token: token, p_hid: S.hid, p_id: id });
         if (data) { photoCache.set(id, data); img.src = data; }
       } catch (e) { /* 다음 새로고침 때 다시 */ }
     }
@@ -599,7 +669,7 @@
         st = sub && Notification.permission === 'granted' ? 'on' : 'off';
       } catch (e) { st = 'unsupported'; }
     }
-    if (st !== pushState) { pushState = st; if (role === 'guardian' && S) renderGuardianSafe(); }
+    if (st !== pushState) { pushState = st; if (role === 'guardian') renderGuardianSafe(); }
   }
 
   function pushNotice() {
@@ -625,7 +695,7 @@
 
   async function enablePush() {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { pushState = perm === 'denied' ? 'denied' : 'off'; return renderGuardian(); }
+    if (perm !== 'granted') { pushState = perm === 'denied' ? 'denied' : 'off'; return render(); }
     try {
       const reg = await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
@@ -633,7 +703,7 @@
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(publicKey) });
       const j = sub.toJSON();
-      await rpc('hyodo_save_push', { p_token: token, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+      await rpc('hyodo_g_save_push', { p_token: token, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
       pushState = 'on'; toast('알림을 켰어요'); ping(); refresh();
     } catch (e) { toast('알림을 켜지 못했어요. 다시 해 주세요'); }
   }
@@ -706,21 +776,32 @@
     }
 
     if (role === 'guardian') {
-      if (b.dataset.scale) return guardianDo(() => rpc('hyodo_save_settings', { p_token: token, p_elder_name: S.elder_name, p_scale: Number(b.dataset.scale) }), '글자 크기를 바꿨어요');
       const g = b.dataset.g;
+      if (g === 'to-list') { ui.forceList = true; ui.route = 'home'; if (location.hash === '#/guardian') return refresh().then(render); location.hash = '#/guardian'; return; }
+      if (g === 'add') { ui.route = 'g-add'; return render(); }
+      if (g === 'demo') { b.disabled = true; return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); }); }
+      if (g === 'edit-my-name') { editingMyName = true; render(); return document.getElementById('my-name').select(); }
+      if (g === 'cancel-my-name') { editingMyName = false; return render(); }
+      if (b.dataset.scale) return guardianDo(() => rpc('hyodo_g_save_settings', { p_token: token, p_hid: S.hid, p_elder_name: S.elder_name, p_scale: Number(b.dataset.scale) }), '글자 크기를 바꿨어요');
       if (g === 'face') { contactPhotoInput.dataset.slot = b.dataset.slot; return contactPhotoInput.click(); }
-      if (g === 'rm-med') return guardianDo(() => rpc('hyodo_remove_med', { p_token: token, p_id: Number(b.dataset.id) }), '약을 뺐어요');
+      if (g === 'rm-med') return guardianDo(() => rpc('hyodo_g_remove_med', { p_token: token, p_hid: S.hid, p_id: Number(b.dataset.id) }), '약을 뺐어요');
       if (g === 'edit-name') { editingName = true; renderGuardian(); return document.getElementById('elder-name-g').select(); }
       if (g === 'cancel-name') { editingName = false; return renderGuardian(); }
       if (g === 'edit-contact') { editingContacts.add(Number(b.dataset.slot)); renderGuardian(); return document.getElementById('cn-' + b.dataset.slot).focus(); }
       if (g === 'cancel-contact') { editingContacts.delete(Number(b.dataset.slot)); return renderGuardian(); }
-      if (g === 'clear-contact') return guardianDo(() => rpc('hyodo_save_contact', { p_token: token, p_slot: Number(b.dataset.slot), p_name: '', p_rel: '', p_phone: '', p_photo: null }), '연락처를 비웠어요');
+      if (g === 'clear-contact') return guardianDo(() => rpc('hyodo_g_save_contact', { p_token: token, p_hid: S.hid, p_slot: Number(b.dataset.slot), p_name: '', p_rel: '', p_phone: '', p_photo: null }), '연락처를 비웠어요');
       if (g === 'push-on') return enablePush();
       if (g === 'push-test') return pushCall({ action: 'test', token }).then(r => toast(r.sent ? '테스트 알림을 보냈어요' : '보낼 곳이 없어요. 알림을 다시 켜 주세요')).catch(() => toast('보내지 못했어요'));
-      if (g === 'new-code') return guardianDo(() => rpc('hyodo_refresh_pair_code', { p_token: token }));
+      if (g === 'new-code') return guardianDo(() => rpc('hyodo_g_refresh_pair_code', { p_token: token, p_hid: S.hid }));
+      if (g === 'unlink') {
+        if (!b.dataset.confirm) { b.dataset.confirm = '1'; b.textContent = '정말 끊을까요? 한 번 더 누르세요'; return; }
+        return rpc('hyodo_g_unlink', { p_token: token, p_hid: S.hid })
+          .then(() => { toast('연결을 끊었어요'); ui.forceList = true; location.hash = '#/guardian'; })
+          .catch(() => toast('끊지 못했어요. 다시 해 주세요'));
+      }
       if (g === 'leave') {
         if (b.dataset.confirm) { forget(); history.replaceState(null, '', location.pathname); ui.route = 'start'; return render(); }
-        b.dataset.confirm = '1'; b.textContent = '정말 끊을까요? 한 번 더 누르세요'; return;
+        b.dataset.confirm = '1'; b.textContent = '다시 쓰려면 어르신마다 다시 연결해야 해요. 한 번 더 누르면 나가요'; return;
       }
     }
   });
@@ -735,23 +816,33 @@
     if (f.id === 'f-guardian') {
       const code = document.getElementById('pair-code').value.replace(/\D/g, '');
       if (code.length !== 6) { err.textContent = '숫자 6자리를 넣어 주세요'; return; }
-      return startGuardian(code).catch(ex => { err.textContent = ex.message === 'bad_code' ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요'; });
+      return startGuardian(code, document.getElementById('guardian-name').value).catch(ex => { err.textContent = ex.message === 'bad_code' ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요'; });
+    }
+    if (f.id === 'f-add') {
+      const code = document.getElementById('add-code').value.replace(/\D/g, '');
+      if (code.length !== 6) { err.textContent = '숫자 6자리를 넣어 주세요'; return; }
+      return startGuardian(code, null).catch(ex => { err.textContent = ex.message === 'bad_code' ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요'; });
+    }
+    if (f.id === 'my-name-form') {
+      return rpc('hyodo_g_set_name', { p_token: token, p_name: document.getElementById('my-name').value })
+        .then(() => { editingMyName = false; toast('이름을 바꿨어요'); return refresh(); })
+        .catch(() => toast('저장하지 못했어요. 다시 해 주세요'));
     }
     if (f.id === 'name-form') {
       return guardianDo(async () => {
-        await rpc('hyodo_save_settings', { p_token: token, p_elder_name: document.getElementById('elder-name-g').value, p_scale: S.scale });
+        await rpc('hyodo_g_save_settings', { p_token: token, p_hid: S.hid, p_elder_name: document.getElementById('elder-name-g').value, p_scale: S.scale });
         editingName = false;
       }, '이름을 바꿨어요');
     }
     if (f.id === 'add-med') {
-      return guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: null, p_time: pickedTime('new-med'), p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
+      return guardianDo(() => rpc('hyodo_g_save_med', { p_token: token, p_hid: S.hid, p_id: null, p_time: pickedTime('new-med'), p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
     }
     if (f.classList.contains('contact')) {
       const slot = Number(f.dataset.slot);
       const name = f.elements.name.value.trim();
       if (!name) { toast('이름을 넣어 주세요'); return; }
       return guardianDo(async () => {
-        await rpc('hyodo_save_contact', { p_token: token, p_slot: slot, p_name: name, p_rel: f.elements.rel.value, p_phone: f.elements.phone.value.trim(), p_photo: null });
+        await rpc('hyodo_g_save_contact', { p_token: token, p_hid: S.hid, p_slot: slot, p_name: name, p_rel: f.elements.rel.value, p_phone: f.elements.phone.value.trim(), p_photo: null });
         editingContacts.delete(slot);
       }, '연락처를 저장했어요');
     }
@@ -764,7 +855,7 @@
     const id = Number(t.dataset.med);
     const time = pickedTime('mt-' + id), label = document.getElementById('ml-' + id).value.trim();
     if (!time || !label) return;
-    guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: id, p_time: time, p_label: label }), '약 정보를 저장했어요');
+    guardianDo(() => rpc('hyodo_g_save_med', { p_token: token, p_hid: S.hid, p_id: id, p_time: time, p_label: label }), '약 정보를 저장했어요');
   });
   $app.addEventListener('focusout', () => { setTimeout(() => { if (guardianDirty && role === 'guardian') renderGuardianSafe(); }, 200); });
 
@@ -787,8 +878,8 @@
     if (!name) { toast('이름을 먼저 넣고 저장해 주세요'); return; }
     try {
       const data = await resizeImage(file, 256, 0.8, true);
-      guardianDo(() => rpc('hyodo_save_contact', {
-        p_token: token, p_slot: slot, p_name: name,
+      guardianDo(() => rpc('hyodo_g_save_contact', {
+        p_token: token, p_hid: S.hid, p_slot: slot, p_name: name,
         p_rel: form ? form.elements.rel.value : (c ? c.rel : ''),
         p_phone: form ? form.elements.phone.value.trim() : (c ? c.phone : ''),
         p_photo: data
@@ -799,20 +890,29 @@
   /* ---------- 체험 모드 (테스트용: 폰 하나로 어르신·보호자 화면 번갈아 보기) ---------- */
   const $demoBar = document.getElementById('demo-bar');
   const isDemo = () => store.get('demo') === '1' && !!store.get('senior.token') && !!store.get('guardian.token');
+  const demoGuardianHash = () => '#/guardian/h/' + store.get('demo.hid');
   let pendingPreview = false;
 
+  // 이미 보호자로 쓰는 폰(요양보호사 테스터)이면 그 목록에 '체험 어르신'을 붙인다. 실제 목록은 그대로 둔다.
   async function startDemo() {
-    const r = await rpc('hyodo_create_demo', {});
-    store.set('senior.token', r.senior); store.set('guardian.token', r.guardian); store.set('demo', '1');
-    if (location.hash === '#/guardian') return switchTo('guardian');
-    location.hash = '#/guardian';
+    if (store.get('senior.token')) { toast('이 폰은 어르신 폰으로 쓰고 있어서 체험을 시작할 수 없어요'); return; }
+    const r = await rpc('hyodo_g_create_demo', { p_token: store.get('guardian.token') || null });
+    store.set('senior.token', r.senior); store.set('guardian.token', r.guardian);
+    store.set('demo', '1'); store.set('demo.hid', r.hid); store.set('demo.newGuardian', r.new_guardian ? '1' : null);
+    location.hash = demoGuardianHash();
   }
 
-  function endDemo() {
+  async function endDemo() {
     stopAlarm();
-    store.set('senior.token', null); store.set('guardian.token', null); store.set('demo', null);
-    if (chan) { sb.removeChannel(chan); chan = null; }
-    token = null; role = null; S = null; ui.route = 'start';
+    const gt = store.get('guardian.token'), hid = store.get('demo.hid');
+    if (gt && hid) await rpc('hyodo_g_unlink', { p_token: gt, p_hid: hid }).catch(() => {});
+    store.set('senior.token', null);
+    if (store.get('demo.newGuardian')) store.set('guardian.token', null);
+    store.set('demo', null); store.set('demo.hid', null); store.set('demo.newGuardian', null);
+    setChannels([]);
+    S = null; G = null; ui.route = 'home'; ui.forceList = true;
+    if (store.get('guardian.token')) { location.hash = '#/guardian'; return; }
+    token = null; role = null; ui.route = 'start';
     history.replaceState(null, '', location.pathname);
     render();
   }
@@ -832,7 +932,8 @@
   $demoBar.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const d = b.dataset.demo;
-    if (d === 'senior' || d === 'guardian') { location.hash = '#/' + d; return; }
+    if (d === 'senior') { location.hash = '#/senior'; return; }
+    if (d === 'guardian') { location.hash = demoGuardianHash(); return; }
     if (d === 'alarm') {
       if (role === 'senior' && S) return previewAlarm();
       pendingPreview = true; location.hash = '#/senior'; return;
@@ -844,12 +945,12 @@
   });
 
   /* ---------- 시작 ---------- */
-  if (token) { ui.route = 'home'; refresh().then(render); } else render();
+  if (token) { ui.route = role === 'guardian' && hashJoin() ? 'g-add' : 'home'; refresh().then(render); } else render();
   // 주소의 #/guardian 등을 바꾸면 그 역할 화면으로 바꿔 보여 준다
   function switchTo(r) {
-    if (chan) { sb.removeChannel(chan); chan = null; }
+    setChannels([]);
     stopAlarm();
-    role = r; token = r ? store.get(r + '.token') : null; S = null;
+    role = r; token = r ? store.get(r + '.token') : null; S = null; G = null;
     ui.route = token ? 'home' : 'start'; ui.ctx = {}; ui.voiceOpen = false;
     if (token) return refresh().then(render);
     render();
@@ -857,7 +958,15 @@
   }
   window.addEventListener('hashchange', () => {
     const r = pickRole();
-    if (r === role && token) return;
+    if (r === role && token) {
+      // 보호자 안에서 목록 ↔ 어르신 상세 ↔ 어르신 추가 이동
+      if (role === 'guardian') {
+        S = null; editingName = false; editingContacts.clear();
+        ui.route = hashJoin() ? 'g-add' : 'home';
+        render(); refresh();
+      }
+      return;
+    }
     switchTo(r).then(() => { if (pendingPreview && role === 'senior') { pendingPreview = false; previewAlarm(); } });
   });
 

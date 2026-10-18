@@ -32,8 +32,14 @@ async function vapid() {
 
 type Payload = { title: string; body: string; tag?: string; url?: string };
 
-async function sendTo(householdId: string, payload: Payload) {
-  const subs = await sql`select id, endpoint, p256dh, auth from hyodo.push_subs where household_id = ${householdId}`;
+// 받을 폰: 그 어르신과 연결된 보호자들의 폰 (보호자 한 명이 여러 어르신을 맡을 수 있다)
+async function subsForHousehold(householdId: string) {
+  return await sql`select gp.id, gp.endpoint, gp.p256dh, gp.auth
+                     from hyodo.guardian_links l join hyodo.guardian_push gp on gp.guardian_id = l.guardian_id
+                    where l.household_id = ${householdId} and l.active`;
+}
+
+async function send(subs: { id: number; endpoint: string; p256dh: string; auth: string }[], payload: Payload) {
   let sent = 0;
   for (const s of subs) {
     try {
@@ -43,11 +49,11 @@ async function sendTo(householdId: string, payload: Payload) {
         { TTL: 3 * 3600, urgency: "high" },
       );
       sent++;
-      await sql`update hyodo.push_subs set last_ok = now() where id = ${s.id}`;
+      await sql`update hyodo.guardian_push set last_ok = now() where id = ${s.id}`;
     } catch (e) {
       const code = (e as { statusCode?: number }).statusCode;
       // 404/410: 보호자가 알림을 끄거나 앱을 지움 → 등록 정보 정리
-      if (code === 404 || code === 410) await sql`delete from hyodo.push_subs where id = ${s.id}`;
+      if (code === 404 || code === 410) await sql`delete from hyodo.guardian_push where id = ${s.id}`;
       else console.error("push failed", code, (e as Error).message);
     }
   }
@@ -66,9 +72,10 @@ Deno.serve(async (req) => {
     if (body.action === "vapid") return json({ publicKey: k.publicKey });
 
     if (body.action === "test") {
-      const rows = await sql`select id from hyodo.households where guardian_token = ${body.token ?? ""}`;
+      const rows = await sql`select id from hyodo.guardians where token = ${body.token ?? ""}`;
       if (!rows.length) return json({ error: "invalid_token" }, 401);
-      const sent = await sendTo(rows[0].id, { title: "효도비서", body: "알림이 잘 와요. 약을 안 드시면 이렇게 알려 드릴게요.", tag: "test" });
+      const subs = await sql`select id, endpoint, p256dh, auth from hyodo.guardian_push where guardian_id = ${rows[0].id}`;
+      const sent = await send(subs, { title: "효도비서", body: "알림이 잘 와요. 약을 안 드시면 이렇게 알려 드릴게요.", tag: "test" });
       return json({ sent });
     }
 
@@ -78,10 +85,11 @@ Deno.serve(async (req) => {
       const alerts = await sql`select * from hyodo.claim_missed_alerts()`;
       let sent = 0;
       for (const a of alerts) {
-        sent += await sendTo(a.household_id, {
+        sent += await send(await subsForHousehold(a.household_id), {
           title: "약 안 드심 · " + a.elder_name + " 님",
           body: a.labels + "을 30분 넘게 안 드셨어요. 전화해 보시겠어요?",
-          tag: "miss-" + a.med_time,
+          tag: "miss-" + a.household_id + "-" + a.med_time,
+          url: "./#/guardian/h/" + a.household_id,
         });
       }
       return json({ alerts: alerts.length, sent });

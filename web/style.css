@@ -213,3 +213,13 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .push-on { border-style: solid; border-color: var(--ok-bg); background: var(--ok-bg); color: var(--ok-fg); font-weight: 600; }
 .two-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .senior .center .wide-btn + .wide-btn { margin-top: 2px; }
+
+/* ---------- 보호자: 맡은 어르신 목록 ---------- */
+.g-back { justify-self: start; border: 0; background: none; color: var(--photo); font-weight: 600; padding: 2px 0; font-size: 15px; }
+.elder-list { display: grid; gap: 10px; }
+.elder-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; color: var(--fg); text-decoration: none; }
+.elder-card.warn { border-color: var(--miss-fg); box-shadow: inset 4px 0 0 var(--miss-fg); }
+.elder-main { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.elder-main b { font-size: 17px; }
+.elder-card small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.add-elder { background: var(--ink); color: var(--surface); font-family: var(--font-ui); font-size: 17px; padding: 14px; }
