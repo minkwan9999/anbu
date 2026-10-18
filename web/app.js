@@ -429,11 +429,11 @@
     return Math.floor(m / 1440) + '일 전';
   }
 
-  // 브라우저 기본 시간 선택기 대신 '아침 8시' 식의 시 + 5분 단위 분 드롭다운
+  // 브라우저 기본 시간 선택기 대신 '아침 8시' 식의 시 + 30분 단위 분 드롭다운
   function timePick(id, hm, medId) {
     const [h, m] = hm.split(':').map(Number);
     const data = medId ? ' data-med="' + medId + '"' : '';
-    const mins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    const mins = [0, 30];
     if (!mins.includes(m)) mins.push(m), mins.sort((a, b) => a - b);
     return '<span class="time-pick">' +
       '<select id="' + id + '-h"' + data + ' aria-label="약 먹는 시">' +
