@@ -3,7 +3,8 @@
   const sb = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: false } });
   const $app = document.getElementById('app');
   const $toast = document.getElementById('toast');
-  const photoInput = document.getElementById('photo-input');
+  const photoInput = document.getElementById('photo-input');        // 카메라로 바로 찍기
+  const galleryInput = document.getElementById('gallery-input');    // 사진첩에서 고르기
   const contactPhotoInput = document.getElementById('contact-photo-input');
 
   /* ---------- 저장소 · 서버 ---------- */
@@ -251,8 +252,9 @@
         (ui.ctx.img
           ? '<img class="preview-img" src="' + ui.ctx.img + '" alt="보낼 사진">' +
             '<button class="wide-btn" style="background:var(--photo)" data-act="send"' + (ui.ctx.sending ? ' disabled' : '') + '>' + (ui.ctx.sending ? '보내는 중…' : '이 사진 보내기') + '</button>' +
-            '<button class="ghost-btn" data-act="shoot">다시 찍기</button>'
-          : '<div class="center"><button class="wide-btn" style="background:var(--photo)" data-act="shoot">📷 사진 찍기</button></div>');
+            '<div class="two-btn"><button class="ghost-btn" data-act="shoot">📷 다시 찍기</button><button class="ghost-btn" data-act="gallery">🖼️ 다른 사진</button></div>'
+          : '<div class="center"><button class="wide-btn" style="background:var(--photo)" data-act="shoot">📷 사진 찍기</button>' +
+            '<button class="wide-btn" style="background:var(--surface);color:var(--photo);box-shadow:inset 0 0 0 3px var(--photo)" data-act="gallery">🖼️ 사진첩에서 고르기</button></div>');
     } else if (r === 'sent') {
       html += '<div class="center s-center"><div class="ring" style="background:var(--photo)">✓</div>' +
         '<h2>' + esc(ui.ctx.who.name) + '에게<br>사진을 보냈어요</h2><button class="ghost-btn" data-go="home">처음으로</button></div>';
@@ -383,8 +385,7 @@
     if (r.intent === 'call') return r.who ? startCall(r.who) : go('call');
     if (r.intent === 'photo') {
       if (!r.who) return go('photo-who');
-      go('photo-send', { who: r.who });
-      return photoInput.click();
+      return go('photo-send', { who: r.who });
     }
   }
 
@@ -672,8 +673,7 @@
       if (b.dataset.pick !== undefined) {
         const c = contacts().find(x => x.slot === Number(b.dataset.pick));
         if (ui.route === 'call') return startCall(c);
-        go('photo-send', { who: c });
-        return photoInput.click();
+        return go('photo-send', { who: c });
       }
       const a = b.dataset.act;
       if (a === 'took') return takeMed();
@@ -687,6 +687,7 @@
       if (a === 'listen') return listen();
       if (a === 'voice-close') { ui.voiceOpen = false; try { if (rec) rec.abort(); } catch (err) { /* 이미 멈춤 */ } return render(); }
       if (a === 'shoot') return photoInput.click();
+      if (a === 'gallery') return galleryInput.click();
       if (a === 'show-pair') return go('pair');
       if (a === 'new-code') return rpc('hyodo_refresh_pair_code', { p_token: token }).then(refresh).catch(() => toast('코드를 받지 못했어요'));
       if (a === 'alarm-snooze') {
@@ -767,13 +768,13 @@
   });
   $app.addEventListener('focusout', () => { setTimeout(() => { if (guardianDirty && role === 'guardian') renderGuardianSafe(); }, 200); });
 
-  photoInput.addEventListener('change', async () => {
-    const file = photoInput.files && photoInput.files[0];
-    photoInput.value = '';
+  [photoInput, galleryInput].forEach(input => input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
     if (!file || ui.route !== 'photo-send') return;
     try { ui.ctx.img = await resizeImage(file, 1280, 0.75, false); render(); }
     catch (e) { toast(e.message); }
-  });
+  }));
 
   contactPhotoInput.addEventListener('change', async () => {
     const file = contactPhotoInput.files && contactPhotoInput.files[0];
