@@ -228,3 +228,9 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .start-sec { margin: 8px 0 -6px; font-size: 15px; font-weight: 700; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
 .start-sec span { font-size: 12px; font-weight: 500; }
 .demo-btn { background: var(--surface-2); }
+
+/* ---------- 시작 보호자 · 데이터 초기화 ---------- */
+.owner-line { display: block; margin-top: 2px; }
+.owner-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--ink); color: var(--surface); margin-right: 2px; }
+.reset-card p { margin: 0; font-size: 14px; color: var(--muted); }
+.g-btn.danger { border-color: var(--miss-fg); color: var(--miss-fg); background: var(--miss-bg); }

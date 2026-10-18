@@ -563,7 +563,9 @@
       '<div class="g-name">' + (editingName
         ? '<form class="name-edit" id="name-form"><input id="elder-name-g" value="' + esc(S.elder_name) + '" maxlength="20" aria-label="어르신 성함">' +
           '<button class="g-btn primary" type="submit">저장</button><button class="g-btn" type="button" data-g="cancel-name">취소</button></form>'
-        : '<div class="name-row"><h1>' + esc(S.elder_name) + ' 님</h1><button class="g-btn small" data-g="edit-name">수정</button></div>') + '<small><span class="dot' + (stale ? ' stale' : '') + '"></span>마지막 활동 ' + minsAgo(S.last_active) + '</small></div></div>';
+        : '<div class="name-row"><h1>' + esc(S.elder_name) + ' 님</h1><button class="g-btn small" data-g="edit-name">수정</button></div>') + '<small><span class="dot' + (stale ? ' stale' : '') + '"></span>마지막 활동 ' + minsAgo(S.last_active) + '</small>' +
+      (S.owner_name ? '<small class="owner-line">' + (S.is_owner ? '<span class="owner-tag">시작 보호자</span> 나' : '시작 보호자: ' + esc(S.owner_name) + ' 님') + '</small>' : '') +
+      '</div></div>';
 
     missed.forEach(m => {
       html += '<div class="alert-banner"><span>⚠️ ' + esc(m.label) + '을 30분 넘게 안 드셨어요</span>' +
@@ -629,6 +631,12 @@
     html += '<div class="card"><h2>최근 활동</h2><div class="log">' +
       (S.activity.length ? S.activity.map(l => '<div><time>' + esc(l.t) + '</time><span>' + esc(l.msg) + '</span></div>').join('') : '<span class="empty">아직 기록이 없어요.</span>') +
       '</div></div>';
+
+    if (S.is_owner) {
+      html += '<div class="card reset-card"><h2>데이터 초기화 <span>시작 보호자만 할 수 있어요</span></h2>' +
+        '<p>약, 연락처, 받은 사진, 활동 기록을 비우고 처음부터 다시 시작해요. 어르신 폰과 보호자들의 <b>연결은 그대로</b> 남아요.</p>' +
+        '<div><button class="g-btn danger" data-g="reset">데이터 초기화</button></div></div>';
+    }
 
     html += '<div class="foot">' + (S.demo ? '' :
       (S.pair_code ? '<div>다른 가족·보호자를 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
@@ -759,7 +767,9 @@
     }
     catch (e) {
       if (!token) return render();
-      toast(e.message === 'too_many' ? '약은 8개까지 넣을 수 있어요' : '저장하지 못했어요. 다시 해 주세요');
+      toast(e.message === 'too_many' ? '약은 8개까지 넣을 수 있어요'
+        : e.message === 'not_owner' ? '시작 보호자만 할 수 있어요'
+        : '저장하지 못했어요. 다시 해 주세요');
     }
   }
 
@@ -839,6 +849,14 @@
       if (g === 'push-on') return enablePush();
       if (g === 'push-test') return pushCall({ action: 'test', token }).then(r => toast(r.sent ? '테스트 알림을 보냈어요' : '보낼 곳이 없어요. 알림을 다시 켜 주세요')).catch(() => toast('보내지 못했어요'));
       if (g === 'new-code') return guardianDo(() => rpc('hyodo_g_refresh_pair_code', { p_token: token, p_hid: S.hid }));
+      if (g === 'reset') {
+        if (!b.dataset.confirm) { b.dataset.confirm = '1'; b.textContent = '정말 지울까요? 한 번 더 누르면 초기화돼요'; return; }
+        b.disabled = true;
+        return guardianDo(async () => {
+          await rpc('hyodo_g_reset', { p_token: token, p_hid: S.hid });
+          photoCache.clear(); editingContacts.clear();
+        }, '데이터를 초기화했어요').then(() => { window.scrollTo(0, 0); });
+      }
       if (g === 'unlink') {
         if (!b.dataset.confirm) { b.dataset.confirm = '1'; b.textContent = '정말 끊을까요? 한 번 더 누르세요'; return; }
         return rpc('hyodo_g_unlink', { p_token: token, p_hid: S.hid })
