@@ -180,6 +180,7 @@
   }
 
   /* ---------- 처음 시작 ---------- */
+  const GUARDIAN_RELS = ['딸', '아들', '며느리', '사위', '손주', '배우자', '요양보호사', '사회복지사', '기타'];
   function renderStart() {
     const join = (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1];
     const step = ui.route === 'start-senior' || ui.route === 'start-guardian' ? ui.route : (join ? 'start-guardian' : 'start');
@@ -203,12 +204,15 @@
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>' + (demo ? '체험용 보호자 폰' : '보호자 폰') + '</h1>' +
         (ji && !ji.bad ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo ? '(체험용 어르신)' : '') + '과 연결해요. 이름을 넣고 연결하기를 눌러 주세요.</p>'
                        : '<p>어르신 폰에 보이는 숫자 6자리를 넣거나, 어르신 폰의 QR을 이 폰 카메라로 찍어 주세요.</p>') +
-        '<div class="field"><label for="guardian-name">내 이름 (기록에 "누가 바꿨는지" 남아요)</label><input id="guardian-name" maxlength="20" placeholder="예: 딸 지은, 요양보호사 김미영" autocomplete="off"></div>' +
+        '<div class="field"><label for="guardian-rel">어르신과의 관계 · 내 이름 <span>(기록에 "누가 바꿨는지" 남아요)</span></label>' +
+          '<div class="name-pair"><select id="guardian-rel" aria-label="어르신과의 관계"><option value="">관계</option>' +
+            GUARDIAN_RELS.map(r => '<option>' + r + '</option>').join('') + '</select>' +
+          '<input id="guardian-name" maxlength="12" placeholder="이름 (예: 지은)" autocomplete="off" aria-label="내 이름"></div></div>' +
         '<div class="field"><label for="pair-code">연결 코드</label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
         '<div class="err" id="err">' + (ji && ji.bad ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '') + '</div>' +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></form>';
-      if (join) document.getElementById('guardian-name').focus();
+      if (join) document.getElementById('guardian-rel').focus();
     }
   }
 
@@ -880,7 +884,10 @@
     if (f.id === 'f-guardian') {
       const code = document.getElementById('pair-code').value.replace(/\D/g, '');
       if (code.length !== 6) { err.textContent = '숫자 6자리를 넣어 주세요'; return; }
-      return startGuardian(code, document.getElementById('guardian-name').value).catch(ex => { err.textContent = joinError(ex); });
+      const rel = document.getElementById('guardian-rel').value, nm = document.getElementById('guardian-name').value.trim();
+      if (!nm) { err.textContent = '이름을 넣어 주세요'; return; }
+      // 기록에는 '딸 지은', '요양보호사 김미영'처럼 관계와 이름을 붙여 남긴다
+      return startGuardian(code, (rel && rel !== '기타' ? rel + ' ' : '') + nm).catch(ex => { err.textContent = joinError(ex); });
     }
     if (f.id === 'f-add') {
       const code = document.getElementById('add-code').value.replace(/\D/g, '');

@@ -62,7 +62,9 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 .field { display: grid; gap: 6px; text-align: left; width: 100%; }
 .field label { font-size: 14px; font-weight: 600; color: var(--muted); }
-.field input { border: 2px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface); font-size: 18px; }
+.field input, .field select { width: 100%; min-width: 0; border: 2px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface); font-size: 18px; }
+.field label span { font-weight: 400; }
+.name-pair { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; }
 .code-input { text-align: center; letter-spacing: .4em; font-size: 28px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
 .err { color: var(--alert); font-weight: 600; min-height: 1.5em; }
 
