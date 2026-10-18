@@ -181,6 +181,8 @@
 
   /* ---------- 처음 시작 ---------- */
   const GUARDIAN_RELS = ['딸', '아들', '며느리', '사위', '손주', '배우자', '요양보호사', '사회복지사', '기타'];
+  // 어르신 화면 연락처에 넣을 호칭: '말로 하기'가 알아듣는 말로 맞춘다 ("선생님한테 전화해줘")
+  const CONTACT_REL = { '요양보호사': '선생님', '사회복지사': '선생님', '': '기타' };
   function renderStart() {
     const join = (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1];
     const step = ui.route === 'start-senior' || ui.route === 'start-guardian' ? ui.route : (join ? 'start-guardian' : 'start');
@@ -208,6 +210,8 @@
           '<div class="name-pair"><select id="guardian-rel" aria-label="어르신과의 관계"><option value="">관계</option>' +
             GUARDIAN_RELS.map(r => '<option>' + r + '</option>').join('') + '</select>' +
           '<input id="guardian-name" maxlength="12" placeholder="이름 (예: 지은)" autocomplete="off" aria-label="내 이름"></div></div>' +
+        '<div class="field"><label for="guardian-phone">내 전화번호 <span>(어르신 폰 "전화하기"에 바로 들어가요)</span></label>' +
+          '<input id="guardian-phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel"></div>' +
         '<div class="field"><label for="pair-code">연결 코드</label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
         '<div class="err" id="err">' + (ji && ji.bad ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '') + '</div>' +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
@@ -225,14 +229,16 @@
   }
 
   // 보호자 연결: 처음이면 보호자 계정을 만들고, 이미 보호자면 맡은 어르신 목록에 추가한다
-  async function startGuardian(code, name) {
-    const r = await rpc('hyodo_g_join', { p_code: code, p_token: store.get(tkey('guardian')) || null, p_name: name || null, p_demo: mode === 'demo' });
+  async function startGuardian(code, name, rel, phone) {
+    const r = await rpc('hyodo_g_join', { p_code: code, p_token: store.get(tkey('guardian')) || null, p_name: name || null, p_demo: mode === 'demo', p_rel: rel || null, p_phone: phone || null });
     token = r.token; role = 'guardian'; store.set(tkey('guardian'), token);
     history.replaceState(null, '', location.pathname + '#/guardian/h/' + r.hid);
     pendingPaired = true;
     ui.route = 'home'; ui.forceList = false;
     await refresh(); render();
-    toast('어르신 폰과 연결됐어요');
+    toast(r.contact === 'added' ? '연결됐어요. 어르신 폰 연락처에도 들어갔어요'
+      : r.contact === 'full' ? '연결됐어요. 어르신 연락처 3칸이 꽉 차서 연락처에는 넣지 못했어요'
+      : '어르신 폰과 연결됐어요');
   }
 
   function joinError(ex) {
@@ -887,7 +893,8 @@
       const rel = document.getElementById('guardian-rel').value, nm = document.getElementById('guardian-name').value.trim();
       if (!nm) { err.textContent = '이름을 넣어 주세요'; return; }
       // 기록에는 '딸 지은', '요양보호사 김미영'처럼 관계와 이름을 붙여 남긴다
-      return startGuardian(code, (rel && rel !== '기타' ? rel + ' ' : '') + nm).catch(ex => { err.textContent = joinError(ex); });
+      return startGuardian(code, (rel && rel !== '기타' ? rel + ' ' : '') + nm, CONTACT_REL[rel] || rel, document.getElementById('guardian-phone').value.trim())
+        .catch(ex => { err.textContent = joinError(ex); });
     }
     if (f.id === 'f-add') {
       const code = document.getElementById('add-code').value.replace(/\D/g, '');
