@@ -145,12 +145,12 @@ img { max-width: 100%; }
 .card h2 span { font-size: 12px; color: var(--muted); font-weight: 500; }
 .med-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "label label label" "time chip x"; gap: 6px 8px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .med-row:last-child { border-bottom: 0; padding-bottom: 0; }
-.med-row input[type="time"] { grid-area: time; justify-self: start; }
+.med-row .time-pick { grid-area: time; justify-self: start; display: flex; gap: 6px; }
 .med-row input:not([type]) { grid-area: label; }
 .med-row > :nth-child(3) { grid-area: chip; }
 .med-row > :nth-child(4) { grid-area: x; }
 .med-row input { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--surface-2); font-size: 15px; }
-.med-row input[type="time"] { font-variant-numeric: tabular-nums; }
+.time-pick select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--surface-2); font-size: 15px; font-variant-numeric: tabular-nums; }
 .x-btn { border: 0; background: none; color: var(--muted); font-size: 18px; padding: 4px 6px; }
 .pill-chip { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .st-ok { background: var(--ok-bg); color: var(--ok-fg); }

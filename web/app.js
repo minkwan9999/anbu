@@ -429,6 +429,22 @@
     return Math.floor(m / 1440) + '일 전';
   }
 
+  // 브라우저 기본 시간 선택기 대신 '아침 8시' 식의 시 + 5분 단위 분 드롭다운
+  function timePick(id, hm, medId) {
+    const [h, m] = hm.split(':').map(Number);
+    const data = medId ? ' data-med="' + medId + '"' : '';
+    const mins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    if (!mins.includes(m)) mins.push(m), mins.sort((a, b) => a - b);
+    return '<span class="time-pick">' +
+      '<select id="' + id + '-h"' + data + ' aria-label="약 먹는 시">' +
+        Array.from({ length: 24 }, (_, i) => '<option value="' + i + '"' + (i === h ? ' selected' : '') + '>' + period(i) + ' ' + (i % 12 || 12) + '시</option>').join('') +
+      '</select>' +
+      '<select id="' + id + '-m"' + data + ' aria-label="약 먹는 분">' +
+        mins.map(v => '<option value="' + v + '"' + (v === m ? ' selected' : '') + '>' + pad(v) + '분</option>').join('') +
+      '</select></span>';
+  }
+  const pickedTime = id => pad(document.getElementById(id + '-h').value) + ':' + pad(document.getElementById(id + '-m').value);
+
   function renderGuardian() {
     guardianDirty = false;
     const ok = S.meds.filter(m => m.status === 'ok').length;
@@ -453,11 +469,11 @@
           : m.status === 'miss' ? '<span class="pill-chip st-miss">안 드심</span>'
           : m.status === 'due' ? '<span class="pill-chip st-due">드실 시간</span>'
           : '<span class="pill-chip st-wait">대기</span>';
-        return '<div class="med-row"><input type="time" id="mt-' + m.id + '" data-med="' + m.id + '" value="' + esc(m.time) + '" aria-label="약 시간">' +
+        return '<div class="med-row">' + timePick('mt-' + m.id, m.time, m.id) +
           '<input id="ml-' + m.id + '" data-med="' + m.id + '" value="' + esc(m.label) + '" maxlength="30" aria-label="약 이름">' + chip +
           '<button class="x-btn" data-g="rm-med" data-id="' + m.id + '" aria-label="' + esc(m.label) + ' 빼기">✕</button></div>';
       }).join('') : '<div class="empty">아직 약이 없어요. 아래에서 추가해 주세요.</div>') +
-      '<form class="med-row" id="add-med"><input type="time" id="new-med-time" value="08:00" aria-label="새 약 시간" required>' +
+      '<form class="med-row" id="add-med">' + timePick('new-med', '08:00') +
       '<input id="new-med-label" placeholder="예: 혈압약 (아침)" maxlength="30" aria-label="새 약 이름" required>' +
       '<button class="g-btn primary" type="submit">추가</button><span></span></form></div>';
 
@@ -608,7 +624,7 @@
       return startGuardian(code).catch(ex => { err.textContent = ex.message === 'bad_code' ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요'; });
     }
     if (f.id === 'add-med') {
-      return guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: null, p_time: document.getElementById('new-med-time').value, p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
+      return guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: null, p_time: pickedTime('new-med'), p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
     }
     if (f.id === 'elder-form') {
       return guardianDo(() => rpc('hyodo_save_settings', { p_token: token, p_elder_name: document.getElementById('elder-name-g').value, p_scale: S.scale }), '이름을 저장했어요');
@@ -626,7 +642,7 @@
     const t = e.target;
     if (role !== 'guardian' || !t.dataset.med) return;
     const id = Number(t.dataset.med);
-    const time = document.getElementById('mt-' + id).value, label = document.getElementById('ml-' + id).value.trim();
+    const time = pickedTime('mt-' + id), label = document.getElementById('ml-' + id).value.trim();
     if (!time || !label) return;
     guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: id, p_time: time, p_label: label }), '약 정보를 저장했어요');
   });
