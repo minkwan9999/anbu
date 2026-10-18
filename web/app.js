@@ -205,7 +205,7 @@
         '<p>여기서 만든 체험 데이터는 실제 사용과 따로 저장돼요.</p>' +
         (resume ? '<button class="role-btn" data-start="demo-resume"><b>▶ 하던 체험 이어서 하기</b><span>이 폰에서 하던 체험 화면으로 돌아가요.</span></button>' : '') +
         '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
-        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>폰마다 어르신 폰·보호자 폰을 골라, 실제와 똑같이 연결해서 써 봐요.</span></button></div>';
+        '</div>';   // 폰 두 대로 체험(demo2)은 화면에서 숨김: 체험은 폰 하나로만
     } else if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
@@ -1017,9 +1017,7 @@
   const isDemo = () => mode === 'demo';
   let pendingPreview = false;
 
-  // 폰 하나로 체험: 체험용 어르신 + 체험용 보호자를 이 폰에 같이 만든다. 이미 체험 중이면 이어서 한다.
-  // 폰 하나로 체험: 체험용 어르신을 만들고, 실제와 똑같은 보호자 등록 화면(코드는 미리 채움)으로 간다.
-  // 이미 체험 중이면 이어서 한다.
+  // 폰 하나로 체험: 체험용 어르신을 만들고, 실제와 똑같은 보호자 등록 화면으로 간다. 이미 체험 중이면 이어서 한다.
   async function startDemo() {
     setMode('demo');
     if (store.get('demo.senior.token') && store.get('demo.guardian.token')) {
