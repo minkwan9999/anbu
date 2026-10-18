@@ -6,6 +6,7 @@
   const photoInput = document.getElementById('photo-input');        // 카메라로 바로 찍기
   const galleryInput = document.getElementById('gallery-input');    // 사진첩에서 고르기
   const contactPhotoInput = document.getElementById('contact-photo-input');
+  const joinPhotoInput = document.getElementById('join-photo-input');   // 보호자 등록 때 내 얼굴 사진
 
   /* ---------- 저장소 · 서버 ---------- */
   const store = {
@@ -207,15 +208,17 @@
     } else {
       const ji = ui.joinInfo;
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>' + (demo ? '체험용 보호자 폰' : '보호자 폰') + '</h1>' +
-        (ji && !ji.bad ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo ? '(체험용 어르신)' : '') + '과 연결해요. 이름을 넣고 연결하기를 눌러 주세요.</p>'
+        (ji && !ji.bad ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo && ji.elder_name !== '체험 어르신' ? '(체험용)' : '') + '과 연결해요. 내 정보를 넣고 연결하기를 눌러 주세요.</p>'
                        : '<p>어르신 폰에 보이는 숫자 6자리를 넣거나, 어르신 폰의 QR을 이 폰 카메라로 찍어 주세요.</p>') +
-        '<div class="field"><label for="guardian-rel">어르신과의 관계 · 내 이름 <span>(기록에 "누가 바꿨는지" 남아요)</span></label>' +
+        '<div class="field"><label for="guardian-rel">내 사진 · 어르신과의 관계 · 내 이름 <span>(사진과 이름은 어르신 폰 "전화하기"에 나와요)</span></label>' +
+          '<div class="join-who"><button type="button" class="thumb join-thumb" data-start="join-photo" aria-label="내 사진 고르기">' +
+            (ui.joinPhoto ? '<img src="' + ui.joinPhoto + '" alt="">' : '사진') + '</button>' +
           '<div class="name-pair"><select id="guardian-rel" aria-label="어르신과의 관계"><option value="">관계</option>' +
-            GUARDIAN_RELS.map(r => '<option>' + r + '</option>').join('') + '</select>' +
-          '<input id="guardian-name" maxlength="12" placeholder="이름 (예: 지은)" autocomplete="off" aria-label="내 이름"></div></div>' +
+            GUARDIAN_RELS.map(r => '<option' + (ui.joinDraft && ui.joinDraft.rel === r ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+          '<input id="guardian-name" maxlength="12" placeholder="이름 (예: 지은)" autocomplete="off" aria-label="내 이름" value="' + esc((ui.joinDraft && ui.joinDraft.name) || '') + '"></div></div></div>' +
         '<div class="field"><label for="guardian-phone">내 전화번호 <span>(어르신 폰 "전화하기"에 바로 들어가요)</span></label>' +
-          '<input id="guardian-phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel"></div>' +
-        '<div class="field"><label for="pair-code">연결 코드</label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
+          '<input id="guardian-phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel" value="' + esc((ui.joinDraft && ui.joinDraft.phone) || '') + '"></div>' +
+        '<div class="field"><label for="pair-code">연결 코드</label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || (ji && ji.code) || '') + '"></div>' +
         '<div class="err" id="err">' + (ji && ji.bad ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '') + '</div>' +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></form>';
@@ -232,8 +235,9 @@
   }
 
   // 보호자 연결: 처음이면 보호자 계정을 만들고, 이미 보호자면 맡은 어르신 목록에 추가한다
-  async function startGuardian(code, name, rel, phone) {
-    const r = await rpc('hyodo_g_join', { p_code: code, p_token: store.get(tkey('guardian')) || null, p_name: name || null, p_demo: mode === 'demo', p_rel: rel || null, p_phone: phone || null });
+  async function startGuardian(code, name, rel, phone, photo) {
+    const r = await rpc('hyodo_g_join', { p_code: code, p_token: store.get(tkey('guardian')) || null, p_name: name || null, p_demo: mode === 'demo', p_rel: rel || null, p_phone: phone || null, p_photo: photo || null });
+    ui.joinPhoto = null; ui.joinDraft = null; ui.joinInfo = null;
     token = r.token; role = 'guardian'; store.set(tkey('guardian'), token);
     history.replaceState(null, '', location.pathname + '#/guardian/h/' + r.hid);
     pendingPaired = true;
@@ -793,6 +797,7 @@
     const b = e.target.closest('button'); if (!b) return;
 
     const st = b.dataset.start;
+    if (st === 'join-photo') return joinPhotoInput.click();
     if (st === 'demo1') {
       b.disabled = true;
       return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); });
@@ -896,7 +901,7 @@
       const rel = document.getElementById('guardian-rel').value, nm = document.getElementById('guardian-name').value.trim();
       if (!nm) { err.textContent = '이름을 넣어 주세요'; return; }
       // 기록에는 '딸 지은', '요양보호사 김미영'처럼 관계와 이름을 붙여 남긴다
-      return startGuardian(code, (rel && rel !== '기타' ? rel + ' ' : '') + nm, CONTACT_REL[rel] || rel, document.getElementById('guardian-phone').value.trim())
+      return startGuardian(code, (rel && rel !== '기타' ? rel + ' ' : '') + nm, CONTACT_REL[rel] || rel, document.getElementById('guardian-phone').value.trim(), ui.joinPhoto)
         .catch(ex => { err.textContent = joinError(ex); });
     }
     if (f.id === 'f-add') {
@@ -948,6 +953,21 @@
     catch (e) { toast(e.message); }
   }));
 
+  joinPhotoInput.addEventListener('change', async () => {
+    const file = joinPhotoInput.files && joinPhotoInput.files[0];
+    joinPhotoInput.value = '';
+    if (!file) return;
+    try {
+      ui.joinPhoto = await resizeImage(file, 256, 0.8, true);
+      // 다시 그려도 지금까지 넣은 값이 남도록 적어 둔다
+      const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+      ui.joinDraft = { rel: v('guardian-rel'), name: v('guardian-name'), phone: v('guardian-phone') };
+      const code = v('pair-code');
+      renderStart();
+      if (code) document.getElementById('pair-code').value = code;
+    } catch (e) { toast(e.message); }
+  });
+
   contactPhotoInput.addEventListener('change', async () => {
     const file = contactPhotoInput.files && contactPhotoInput.files[0];
     contactPhotoInput.value = '';
@@ -975,14 +995,27 @@
   let pendingPreview = false;
 
   // 폰 하나로 체험: 체험용 어르신 + 체험용 보호자를 이 폰에 같이 만든다. 이미 체험 중이면 이어서 한다.
+  // 폰 하나로 체험: 체험용 어르신을 만들고, 실제와 똑같은 보호자 등록 화면(코드는 미리 채움)으로 간다.
+  // 이미 체험 중이면 이어서 한다.
   async function startDemo() {
     setMode('demo');
-    if (!store.get('demo.senior.token') || !store.get('demo.guardian.token')) {
-      const r = await rpc('hyodo_g_create_demo', { p_token: null });
-      store.set('demo.senior.token', r.senior); store.set('demo.guardian.token', r.guardian);
+    if (store.get('demo.senior.token') && store.get('demo.guardian.token')) {
+      if (location.hash === '#/guardian') return switchTo('guardian');
+      location.hash = '#/guardian'; return;
     }
-    if (location.hash === '#/guardian') return switchTo('guardian');
-    location.hash = '#/guardian';
+    let st = store.get('demo.senior.token');
+    if (!st) {
+      st = (await rpc('hyodo_create_demo_household', { p_elder_name: '체험 어르신' })).token;
+      store.set('demo.senior.token', st);
+    }
+    let info = await rpc('hyodo_state', { p_token: st });
+    if (!info.pair_code) { await rpc('hyodo_refresh_pair_code', { p_token: st }); info = await rpc('hyodo_state', { p_token: st }); }
+    setChannels([]); stopAlarm();
+    role = null; token = null; S = null; G = null;
+    ui.joinInfo = { demo: true, elder_name: info.elder_name, code: info.pair_code };
+    ui.route = 'start-guardian';
+    history.replaceState(null, '', location.pathname + '#/demo');
+    render();
   }
 
   // 체험 끝내기: 체험 칸만 비우고 실제 사용으로 돌아간다 (실제 연결이 있으면 그 화면으로)

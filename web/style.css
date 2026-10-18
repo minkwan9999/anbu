@@ -237,3 +237,7 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .reset-card p { margin: 0; font-size: 14px; color: var(--muted); }
 .g-btn.danger { border-color: var(--miss-fg); color: var(--miss-fg); background: var(--miss-bg); }
 .start-tag { justify-self: start; align-self: flex-start; }
+
+/* ---------- 보호자 등록: 사진 + 관계·이름 ---------- */
+.join-who { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: center; }
+.join-thumb { width: 72px; height: 72px; border-radius: 18px; border: 2px dashed var(--line); font-size: 14px; }
