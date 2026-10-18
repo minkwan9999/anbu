@@ -200,7 +200,8 @@
         '<button class="role-btn" data-start="demo-guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button>' +
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></div>';
     } else if (step === 'start' && demo) {
-      const resume = hasDemo();
+      // 이어서 하기는 보호자 등록까지 마친 체험이 있을 때만. 등록 전에 나간 체험은 이어 갈 게 없다
+      const resume = !!(store.get('demo.senior.token') && store.get('demo.guardian.token'));
       $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 테스트용</span><h1>효도비서 체험</h1>' +
         '<p>여기서 만든 체험 데이터는 실제 사용과 따로 저장돼요.</p>' +
         (resume ? '<button class="role-btn" data-start="demo-resume"><b>▶ 하던 체험 이어서 하기</b><span>이 폰에서 하던 체험 화면으로 돌아가요.</span></button>' : '') +
