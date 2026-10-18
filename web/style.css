@@ -178,9 +178,7 @@ img { max-width: 100%; }
 .saved-mark { align-self: center; font-size: 13px; font-weight: 600; color: var(--ok-fg); }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 8px; padding: 8px 4px; font-weight: 600; font-size: 14px; }
-.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
-.row-input { display: flex; gap: 8px; }
-.row-input input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--surface-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
 .log { display: grid; gap: 6px; font-size: 14px; }
 .log div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; }
 .log time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }

@@ -516,8 +516,7 @@
     }
     html += '</div>';
 
-    html += '<div class="card"><h2>어르신 화면</h2>' +
-      '<form class="row-input" id="elder-form"><input id="elder-name-g" value="' + esc(S.elder_name) + '" maxlength="20" aria-label="어르신 성함"><button class="g-btn" type="submit">이름 저장</button></form>' +
+    html += '<div class="card"><h2>어르신 화면 글자 크기</h2>' +
       '<div class="seg" role="group" aria-label="글자 크기">' + [[1, '크게'], [1.12, '더 크게'], [1.24, '아주 크게']].map(([v, l]) =>
         '<button data-scale="' + v + '" aria-pressed="' + (Number(S.scale) === v) + '">' + l + '</button>').join('') + '</div></div>';
 
@@ -649,9 +648,6 @@
     }
     if (f.id === 'add-med') {
       return guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: null, p_time: pickedTime('new-med'), p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
-    }
-    if (f.id === 'elder-form') {
-      return guardianDo(() => rpc('hyodo_save_settings', { p_token: token, p_elder_name: document.getElementById('elder-name-g').value, p_scale: S.scale }), '이름을 저장했어요');
     }
     if (f.classList.contains('contact')) {
       const slot = Number(f.dataset.slot);
