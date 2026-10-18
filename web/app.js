@@ -1118,4 +1118,19 @@
       if (role === 'senior') rpc('hyodo_touch', { p_token: token }).catch(() => {});
     }
   });
+
+  // 새 버전이 배포되면 알아서 다시 불러온다 (배포 때 index.html 의 ?v= 가 커밋 번호로 바뀐다).
+  // 글자를 넣는 중이거나 알람이 울리는 중에는 건드리지 않는다.
+  const myVersion = ((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1];
+  async function checkUpdate() {
+    if (!myVersion || myVersion === 'dev' || ui.alarm) return;
+    if (document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+    try {
+      const html = await (await fetch('index.html?check=' + Date.now(), { cache: 'no-store' })).text();
+      const v = (html.match(/app\.js\?v=([\w-]+)/) || [])[1];
+      if (v && v !== 'dev' && v !== myVersion) location.reload();
+    } catch (e) { /* 인터넷이 없으면 다음에 */ }
+  }
+  setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 2 * 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 })();
