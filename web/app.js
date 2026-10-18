@@ -413,6 +413,7 @@
 
   /* ---------- 보호자 화면 ---------- */
   const photoCache = new Map();
+  const editingContacts = new Set();   // '수정'을 눌러 고치는 중인 연락처 칸
   let guardianDirty = false;
 
   function renderGuardianSafe() {
@@ -485,13 +486,18 @@
     html += '<div class="card"><h2>연락처 3명 <span>얼굴을 누르면 사진을 바꿔요</span></h2>';
     for (let slot = 0; slot < 3; slot++) {
       const c = contacts().find(x => x.slot === slot) || { slot, name: '', rel: '', phone: '', photo: null };
-      html += '<form class="contact" data-slot="' + slot + '">' +
+      // 저장된 연락처는 잠가 두고 '수정'을 눌러야 고칠 수 있다
+      const locked = c.name && !editingContacts.has(slot) ? ' disabled' : '';
+      html += '<form class="contact' + (locked ? ' saved' : '') + '" data-slot="' + slot + '">' +
         '<button type="button" class="thumb" data-g="face" data-slot="' + slot + '" aria-label="' + (slot + 1) + '번 연락처 사진">' + (c.photo ? '<img src="' + esc(c.photo) + '" alt="">' : '사진') + '</button>' +
         '<div class="contact-fields">' +
-          '<input name="name" id="cn-' + slot + '" value="' + esc(c.name) + '" maxlength="12" placeholder="이름 (예: 딸 지은)" aria-label="이름">' +
-          '<select name="rel" id="cr-' + slot + '" aria-label="관계">' + window.HyodoVoice.RELS.map(r => '<option' + (r === c.rel ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
-          '<input name="phone" id="cp-' + slot + '" class="full" value="' + esc(c.phone) + '" inputmode="tel" placeholder="전화번호" aria-label="전화번호">' +
-          '<div class="btn-row full"><button class="g-btn primary" type="submit">저장</button>' + (c.name ? '<button class="g-btn" type="button" data-g="clear-contact" data-slot="' + slot + '">비우기</button>' : '') + '</div>' +
+          '<input name="name" id="cn-' + slot + '" value="' + esc(c.name) + '" maxlength="12" placeholder="이름 (예: 딸 지은)" aria-label="이름"' + locked + '>' +
+          '<select name="rel" id="cr-' + slot + '" aria-label="관계"' + locked + '>' + window.HyodoVoice.RELS.map(r => '<option' + (r === c.rel ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+          '<input name="phone" id="cp-' + slot + '" class="full" value="' + esc(c.phone) + '" inputmode="tel" placeholder="' + (locked ? '전화번호 없음' : '전화번호') + '" aria-label="전화번호"' + locked + '>' +
+          '<div class="btn-row full">' + (locked
+            ? '<button class="g-btn" type="button" data-g="edit-contact" data-slot="' + slot + '">수정</button><span class="saved-mark">✓ 저장됨</span>'
+            : '<button class="g-btn primary" type="submit">저장</button>' + (c.name ? '<button class="g-btn" type="button" data-g="cancel-contact" data-slot="' + slot + '">취소</button>' : '')) +
+          (c.name ? '<button class="g-btn" type="button" data-g="clear-contact" data-slot="' + slot + '">비우기</button>' : '') + '</div>' +
         '</div></form>';
     }
     html += '</div>';
@@ -601,6 +607,8 @@
       const g = b.dataset.g;
       if (g === 'face') { contactPhotoInput.dataset.slot = b.dataset.slot; return contactPhotoInput.click(); }
       if (g === 'rm-med') return guardianDo(() => rpc('hyodo_remove_med', { p_token: token, p_id: Number(b.dataset.id) }), '약을 뺐어요');
+      if (g === 'edit-contact') { editingContacts.add(Number(b.dataset.slot)); renderGuardian(); return document.getElementById('cn-' + b.dataset.slot).focus(); }
+      if (g === 'cancel-contact') { editingContacts.delete(Number(b.dataset.slot)); return renderGuardian(); }
       if (g === 'clear-contact') return guardianDo(() => rpc('hyodo_save_contact', { p_token: token, p_slot: Number(b.dataset.slot), p_name: '', p_rel: '', p_phone: '', p_photo: null }), '연락처를 비웠어요');
       if (g === 'notify') return Notification.requestPermission().then(() => renderGuardian());
       if (g === 'new-code') return guardianDo(() => rpc('hyodo_refresh_pair_code', { p_token: token }));
@@ -633,7 +641,10 @@
       const slot = Number(f.dataset.slot);
       const name = f.elements.name.value.trim();
       if (!name) { toast('이름을 넣어 주세요'); return; }
-      return guardianDo(() => rpc('hyodo_save_contact', { p_token: token, p_slot: slot, p_name: name, p_rel: f.elements.rel.value, p_phone: f.elements.phone.value.trim(), p_photo: null }), '연락처를 저장했어요');
+      return guardianDo(async () => {
+        await rpc('hyodo_save_contact', { p_token: token, p_slot: slot, p_name: name, p_rel: f.elements.rel.value, p_phone: f.elements.phone.value.trim(), p_photo: null });
+        editingContacts.delete(slot);
+      }, '연락처를 저장했어요');
     }
   });
 
