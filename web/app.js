@@ -76,7 +76,7 @@
       return;
     }
     if (role === 'senior') { checkAlarm(); if (['home', 'medinfo', 'pair'].includes(ui.route)) render(); }
-    else renderGuardianSafe();
+    else { renderGuardianSafe(); if (pushState === 'checking') checkPush(); }
   }
 
   /* ---------- 작은 도구 ---------- */
@@ -510,9 +510,7 @@
         '<li><b>🔔 알람</b>을 누르면 약 알람을 바로 울려 볼 수 있어요</li></ol></div>';
     }
 
-    if ('Notification' in window && Notification.permission === 'default') {
-      html += '<div class="notice"><span>약을 안 드시면 이 폰에 알림을 띄울까요?</span><button class="g-btn primary" data-g="notify">알림 켜기</button></div>';
-    }
+    html += pushNotice();
 
     html += '<div class="card"><h2>오늘 약 <span>' + ok + ' / ' + S.meds.length + ' 드심</span></h2>' +
       (S.meds.length ? S.meds.map(m => {
@@ -569,7 +567,6 @@
 
     $app.innerHTML = html;
     loadPhotos();
-    notifyMissed(missed);
   }
 
   async function loadPhotos() {
@@ -583,18 +580,63 @@
     }
   }
 
-  function notifyMissed(missed) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const today = new Date().toDateString();
-    let seen; try { seen = JSON.parse(store.get('notified') || '{}'); } catch (e) { seen = {}; }
-    if (seen.day !== today) seen = { day: today, ids: [] };
-    missed.forEach(m => {
-      if (m.ids.every(id => seen.ids.includes(id))) return;
-      seen.ids.push(...m.ids);
-      try { new Notification('효도비서', { body: S.elder_name + ' 님이 ' + m.label + '을 30분 넘게 안 드셨어요', icon: 'icon.svg' }); } catch (e) { /* 알림 불가 */ }
-    });
-    store.set('notified', JSON.stringify(seen));
+  /* ---------- 보호자 알림 (웹 푸시): 앱이 닫혀 있어도 약 미응답을 알려 준다 ---------- */
+  const PUSH_URL = cfg.url + '/functions/v1/hyodo-push';
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let pushState = 'checking';   // checking | on | off | denied | ios-install | unsupported
+
+  async function checkPush() {
+    let st;
+    if (isIOS && !isStandalone) st = 'ios-install';
+    else if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) st = 'unsupported';
+    else if (Notification.permission === 'denied') st = 'denied';
+    else {
+      try {
+        const reg = await navigator.serviceWorker.register('sw.js');
+        const sub = await reg.pushManager.getSubscription();
+        st = sub && Notification.permission === 'granted' ? 'on' : 'off';
+      } catch (e) { st = 'unsupported'; }
+    }
+    if (st !== pushState) { pushState = st; if (role === 'guardian' && S) renderGuardianSafe(); }
   }
+
+  function pushNotice() {
+    if (pushState === 'checking') return '';
+    if (pushState === 'on') return '<div class="notice push-on"><span>🔔 약을 안 드시면 이 폰으로 알림이 와요</span><button class="g-btn" data-g="push-test">테스트 알림</button></div>';
+    if (pushState === 'off') return '<div class="notice"><span>약을 30분 넘게 안 드시면 앱이 닫혀 있어도 알림을 받을까요?</span><button class="g-btn primary" data-g="push-on">알림 켜기</button></div>';
+    if (pushState === 'denied') return '<div class="notice"><span>알림이 막혀 있어요. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.</span></div>';
+    if (pushState === 'ios-install') return '<div class="notice"><span>아이폰은 <b>공유 → 홈 화면에 추가</b>로 앱을 설치한 뒤, 그 앱에서 다시 연결하면 알림을 받을 수 있어요.</span></div>';
+    return '<div class="notice"><span>이 브라우저는 알림을 지원하지 않아요. 크롬이나 사파리를 써 주세요.</span></div>';
+  }
+
+  async function pushCall(body) {
+    const r = await fetch(PUSH_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + cfg.key }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('push_' + r.status);
+    return r.json();
+  }
+
+  function b64urlToBytes(s) {
+    const pad = '='.repeat((4 - s.length % 4) % 4);
+    const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
+  }
+
+  async function enablePush() {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { pushState = perm === 'denied' ? 'denied' : 'off'; return renderGuardian(); }
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+      const { publicKey } = await pushCall({ action: 'vapid' });
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(publicKey) });
+      const j = sub.toJSON();
+      await rpc('hyodo_save_push', { p_token: token, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+      pushState = 'on'; toast('알림을 켰어요'); ping(); refresh();
+    } catch (e) { toast('알림을 켜지 못했어요. 다시 해 주세요'); }
+  }
+
 
   async function guardianDo(fn, okMsg) {
     try {
@@ -672,7 +714,8 @@
       if (g === 'edit-contact') { editingContacts.add(Number(b.dataset.slot)); renderGuardian(); return document.getElementById('cn-' + b.dataset.slot).focus(); }
       if (g === 'cancel-contact') { editingContacts.delete(Number(b.dataset.slot)); return renderGuardian(); }
       if (g === 'clear-contact') return guardianDo(() => rpc('hyodo_save_contact', { p_token: token, p_slot: Number(b.dataset.slot), p_name: '', p_rel: '', p_phone: '', p_photo: null }), '연락처를 비웠어요');
-      if (g === 'notify') return Notification.requestPermission().then(() => renderGuardian());
+      if (g === 'push-on') return enablePush();
+      if (g === 'push-test') return pushCall({ action: 'test', token }).then(r => toast(r.sent ? '테스트 알림을 보냈어요' : '보낼 곳이 없어요. 알림을 다시 켜 주세요')).catch(() => toast('보내지 못했어요'));
       if (g === 'new-code') return guardianDo(() => rpc('hyodo_refresh_pair_code', { p_token: token }));
       if (g === 'leave') {
         if (b.dataset.confirm) { forget(); history.replaceState(null, '', location.pathname); ui.route = 'start'; return render(); }
