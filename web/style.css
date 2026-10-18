@@ -223,3 +223,8 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .elder-main b { font-size: 17px; }
 .elder-card small { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .add-elder { background: var(--ink); color: var(--surface); font-family: var(--font-ui); font-size: 17px; padding: 14px; }
+
+/* ---------- 시작 화면: 실제로 쓰기 / 체험하기 ---------- */
+.start-sec { margin: 8px 0 -6px; font-size: 15px; font-weight: 700; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.start-sec span { font-size: 12px; font-weight: 500; }
+.demo-btn { background: var(--surface-2); }
