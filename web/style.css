@@ -134,6 +134,13 @@ img { max-width: 100%; }
 .g-top { display: flex; align-items: center; gap: 12px; }
 .g-top h1 { margin: 0; font-size: 20px; }
 .g-top small { color: var(--muted); font-size: 13px; }
+.g-name { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.name-row h1 { overflow-wrap: anywhere; }
+.g-btn.small { padding: 3px 9px; font-size: 13px; }
+.name-edit { display: flex; gap: 6px; min-width: 0; }
+.name-edit button { flex: none; }
+.name-edit input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; background: var(--surface-2); font-size: 17px; font-weight: 600; }
 .g-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--pill); color: var(--on-color); display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--call); display: inline-block; margin-right: 5px; vertical-align: 1px; }
 .dot.stale { background: var(--muted); }

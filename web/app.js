@@ -428,6 +428,7 @@
   /* ---------- 보호자 화면 ---------- */
   const photoCache = new Map();
   const editingContacts = new Set();   // '수정'을 눌러 고치는 중인 연락처 칸
+  let editingName = false;              // 맨 위 어르신 이름을 고치는 중
   let guardianDirty = false;
 
   function renderGuardianSafe() {
@@ -467,7 +468,10 @@
     const stale = Date.now() - new Date(S.last_active).getTime() > 3 * 3600 * 1000;
     let html = '<div class="guardian">' +
       '<div class="g-top"><span class="g-avatar">' + esc(S.elder_name.charAt(0)) + '</span>' +
-      '<div><h1>' + esc(S.elder_name) + ' 님</h1><small><span class="dot' + (stale ? ' stale' : '') + '"></span>마지막 활동 ' + minsAgo(S.last_active) + '</small></div></div>';
+      '<div class="g-name">' + (editingName
+        ? '<form class="name-edit" id="name-form"><input id="elder-name-g" value="' + esc(S.elder_name) + '" maxlength="20" aria-label="어르신 성함">' +
+          '<button class="g-btn primary" type="submit">저장</button><button class="g-btn" type="button" data-g="cancel-name">취소</button></form>'
+        : '<div class="name-row"><h1>' + esc(S.elder_name) + ' 님</h1><button class="g-btn small" data-g="edit-name">수정</button></div>') + '<small><span class="dot' + (stale ? ' stale' : '') + '"></span>마지막 활동 ' + minsAgo(S.last_active) + '</small></div></div>';
 
     missed.forEach(m => {
       html += '<div class="alert-banner"><span>⚠️ ' + esc(m.label) + '을 30분 넘게 안 드셨어요</span>' +
@@ -622,6 +626,8 @@
       const g = b.dataset.g;
       if (g === 'face') { contactPhotoInput.dataset.slot = b.dataset.slot; return contactPhotoInput.click(); }
       if (g === 'rm-med') return guardianDo(() => rpc('hyodo_remove_med', { p_token: token, p_id: Number(b.dataset.id) }), '약을 뺐어요');
+      if (g === 'edit-name') { editingName = true; renderGuardian(); return document.getElementById('elder-name-g').select(); }
+      if (g === 'cancel-name') { editingName = false; return renderGuardian(); }
       if (g === 'edit-contact') { editingContacts.add(Number(b.dataset.slot)); renderGuardian(); return document.getElementById('cn-' + b.dataset.slot).focus(); }
       if (g === 'cancel-contact') { editingContacts.delete(Number(b.dataset.slot)); return renderGuardian(); }
       if (g === 'clear-contact') return guardianDo(() => rpc('hyodo_save_contact', { p_token: token, p_slot: Number(b.dataset.slot), p_name: '', p_rel: '', p_phone: '', p_photo: null }), '연락처를 비웠어요');
@@ -645,6 +651,12 @@
       const code = document.getElementById('pair-code').value.replace(/\D/g, '');
       if (code.length !== 6) { err.textContent = '숫자 6자리를 넣어 주세요'; return; }
       return startGuardian(code).catch(ex => { err.textContent = ex.message === 'bad_code' ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요'; });
+    }
+    if (f.id === 'name-form') {
+      return guardianDo(async () => {
+        await rpc('hyodo_save_settings', { p_token: token, p_elder_name: document.getElementById('elder-name-g').value, p_scale: S.scale });
+        editingName = false;
+      }, '이름을 바꿨어요');
     }
     if (f.id === 'add-med') {
       return guardianDo(() => rpc('hyodo_save_med', { p_token: token, p_id: null, p_time: pickedTime('new-med'), p_label: document.getElementById('new-med-label').value }), '약을 추가했어요');
