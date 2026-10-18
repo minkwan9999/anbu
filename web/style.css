@@ -236,3 +236,4 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .owner-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--ink); color: var(--surface); margin-right: 2px; }
 .reset-card p { margin: 0; font-size: 14px; color: var(--muted); }
 .g-btn.danger { border-color: var(--miss-fg); color: var(--miss-fg); background: var(--miss-bg); }
+.start-tag { justify-self: start; align-self: flex-start; }

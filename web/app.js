@@ -40,7 +40,8 @@
       ['demo', 'demo.hid', 'demo.newGuardian'].forEach(k => store.set(k, null));
       setMode('demo');
     }
-    if (mode === 'demo' && !hasDemo()) setMode('real');
+    if (location.hash === '#/demo') setMode('demo');
+    else if (mode === 'demo' && !hasDemo()) setMode('real');
   })();
   function pickRole() {
     const h = location.hash, s = store.get(tkey('senior')), g = store.get(tkey('guardian'));
@@ -187,14 +188,16 @@
     const join = (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1];
     const step = ui.route === 'start-senior' || ui.route === 'start-guardian' ? ui.route : (join ? 'start-guardian' : 'start');
     const demo = mode === 'demo';
-    if (step === 'start') {
-      $app.innerHTML = '<div class="start"><h1>효도비서</h1>' +
-        '<h2 class="start-sec">실제로 쓰기</h2>' +
+    // 실제 사용 시작 화면(기본 주소)과 체험 시작 화면(#/demo)은 주소로 완전히 나눈다
+    if (step === 'start' && demo) {
+      $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 테스트용</span><h1>효도비서 체험</h1>' +
+        '<p>여기서 만든 체험 데이터는 실제 사용과 따로 저장돼요.</p>' +
+        '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
+        '<button class="role-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험</b><span>이 폰을 체험용 어르신으로 시작해요. 다른 폰으로 QR을 찍으면 그 폰이 체험용 보호자가 돼요.</span></button></div>';
+    } else if (step === 'start') {
+      $app.innerHTML = '<div class="start"><h1>효도비서</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
-        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button>' +
-        '<h2 class="start-sec">체험하기 <span>테스트용 · 실제 사용과 따로 저장돼요</span></h2>' +
-        '<button class="role-btn demo-btn" data-start="demo1"><b>📱 폰 하나로 체험</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
-        '<button class="role-btn demo-btn" data-start="demo2"><b>📱📱 폰 두 대로 체험</b><span>이 폰을 체험용 어르신으로 시작해요. 다른 폰으로 QR을 찍으면 그 폰이 체험용 보호자가 돼요.</span></button></div>';
+        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button></div>';
     } else if (step === 'start-senior') {
       $app.innerHTML = '<form class="start" id="f-senior"><h1>' + (demo ? '체험용 어르신 폰' : '어르신 폰') + '</h1>' +
         '<div class="field"><label for="elder-name">어르신 성함 (보호자 화면에 표시)</label><input id="elder-name" maxlength="20" placeholder="예: 김순자" autocomplete="off"></div>' +
@@ -797,9 +800,9 @@
     if (st === 'demo2') { setMode('demo'); ui.route = 'start-senior'; return renderStart(); }
     if (st === 'senior' || st === 'guardian') { setMode('real'); ui.route = 'start-' + st; ui.joinInfo = null; return renderStart(); }
     if (st === 'back') {
-      if (mode === 'demo' && !hasDemo()) setMode('real');
+      // 체험 쪽에서 뒤로 가면 체험 시작 화면, 실제 쪽이면 실제 시작 화면
       ui.route = 'start'; ui.joinInfo = null;
-      history.replaceState(null, '', location.pathname);
+      history.replaceState(null, '', location.pathname + (mode === 'demo' ? '#/demo' : ''));
       return renderStart();
     }
 
@@ -1034,6 +1037,7 @@
   }
   window.addEventListener('hashchange', () => {
     if (hashJoin()) return handleJoin();
+    if (location.hash === '#/demo') setMode('demo');
     const r = pickRole();
     if (r === role && token) {
       // 보호자 안에서 목록 ↔ 어르신 상세 ↔ 어르신 추가 이동
