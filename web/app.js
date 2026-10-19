@@ -334,7 +334,7 @@
           '<button class="big b-pill" data-act="took">' + ICON.pill + '약 먹었어</button>' +
         '</div>' +
         '<button class="mic" data-act="voice">' + ICON.mic + '말로 하기</button>' +
-        '<button class="small-link" data-act="show-pair">보호자 폰 연결</button>';
+        '<button class="small-link" data-act="show-pair">QR코드 (보호자 연결용)</button>';
     } else if (r === 'call' || r === 'photo-who') {
       const isCall = r === 'call';
       html += '<div class="s-head"><button class="back" data-go="home">← 처음으로</button></div>' +
@@ -715,7 +715,7 @@
   function renderGuardianAdd() {
     const join = hashJoin();
     $app.innerHTML = '<form class="start" id="f-add"><h1>어르신 추가</h1>' +
-      '<p>추가할 어르신 폰에서 <b>보호자 폰 연결</b>을 누르면 나오는 숫자 6자리를 넣거나, 그 QR을 이 폰 카메라로 찍어 주세요.</p>' +
+      '<p>추가할 어르신 폰에서 맨 아래 <b>QR코드 (보호자 연결용)</b>을 누르면 나오는 숫자 6자리를 넣거나, 그 QR을 이 폰 카메라로 찍어 주세요.</p>' +
       '<div class="field"><label for="add-code">연결 코드</label><input id="add-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || '') + '"></div>' +
       '<div class="err" id="err"></div>' +
       '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">연결하기</button>' +
