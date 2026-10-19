@@ -219,8 +219,11 @@
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></form>';
     } else {
       const ji = ui.joinInfo;
+      // 체험을 처음 시작할 때는 연결 코드 칸을 숨긴다: 등록 → 빈 보호자 화면 → ＋ 어르신 추가 순서로만
+      const noCode = demo && ji && ji.fresh;
       $app.innerHTML = '<form class="start" id="f-guardian"><h1>' + (demo ? '체험용 보호자 폰' : '보호자 폰') + '</h1>' +
         (ji && !ji.bad && !ji.fresh ? '<p><b>' + esc(ji.elder_name) + '</b> 님' + (ji.demo && ji.elder_name !== '체험 어르신' ? '(체험용)' : '') + '과 연결해요. 내 정보를 넣고 연결하기를 눌러 주세요.</p>'
+                       : noCode ? '<p>먼저 내 정보를 등록해요. 어르신과의 연결은 등록한 뒤 <b>＋ 어르신 추가</b>에서 해요.</p>'
                        : '<p>먼저 내 정보를 등록해요. 어르신과의 연결은 지금 아래 연결 코드를 넣어도 되고, 등록한 뒤 <b>＋ 어르신 추가</b>에서 해도 돼요.</p>') +
         '<div class="field"><label for="guardian-rel">내 사진 · 어르신과의 관계 · 내 이름 <span>(사진과 이름은 어르신 폰 "전화하기"에 나와요)</span></label>' +
           '<div class="join-who"><button type="button" class="thumb join-thumb" data-start="join-photo" aria-label="내 사진 고르기">' +
@@ -230,7 +233,7 @@
           '<input id="guardian-name" maxlength="12" placeholder="이름 (예: 지은)" autocomplete="off" aria-label="내 이름" value="' + esc((ui.joinDraft && ui.joinDraft.name) || '') + '"></div></div></div>' +
         '<div class="field"><label for="guardian-phone">내 전화번호 <span>(어르신 폰 "전화하기"에 바로 들어가요)</span></label>' +
           '<input id="guardian-phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel" value="' + esc((ui.joinDraft && ui.joinDraft.phone) || '') + '"></div>' +
-        '<div class="field"><label for="pair-code">연결 코드 <span>(어르신 폰에 나온 숫자 6자리 · 나중에 넣어도 돼요)</span></label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || (ji && ji.code) || '') + '"></div>' +
+        (noCode ? '' : '<div class="field"><label for="pair-code">연결 코드 <span>(어르신 폰에 나온 숫자 6자리 · 나중에 넣어도 돼요)</span></label><input id="pair-code" class="code-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" value="' + esc(join || (ji && ji.code) || '') + '"></div>') +
         '<div class="err" id="err">' + (ji && ji.bad ? '코드가 맞지 않거나 시간이 지났어요. 어르신 폰에서 새 코드를 받아 주세요' : '') + '</div>' +
         '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" type="submit">' + (join || (ji && ji.code) ? '연결하기' : '등록하기') + '</button>' +
         '<button class="small-link" type="button" data-start="back">← 뒤로</button></form>';
@@ -917,7 +920,7 @@
       return startSenior(document.getElementById('elder-name').value).catch(() => { err.textContent = '시작하지 못했어요. 인터넷 연결을 확인해 주세요'; });
     }
     if (f.id === 'f-guardian') {
-      const code = document.getElementById('pair-code').value.replace(/\D/g, '');
+      const code = (document.getElementById('pair-code') || { value: '' }).value.replace(/\D/g, '');
       const rel = document.getElementById('guardian-rel').value, nm = document.getElementById('guardian-name').value.trim();
       if (!nm) { err.textContent = '이름을 넣어 주세요'; return; }
       if (code.length && code.length !== 6) { err.textContent = '연결 코드는 숫자 6자리예요. 나중에 넣으려면 비워 두세요'; return; }
