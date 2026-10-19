@@ -437,13 +437,23 @@
   /* ---------- 말로 하기 ---------- */
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
+  const VOICE_ERR = {
+    'not-allowed': '마이크가 막혀 있어요. 브라우저에서 마이크를 허용해 주세요',
+    'service-not-allowed': '음성 인식이 꺼져 있어요. 아이폰은 설정 → 일반 → 키보드 → 받아쓰기를 켜 주세요',
+    'no-speech': '아무 말도 안 들렸어요. 빨간 마이크를 누르고 다시 말씀해 주세요',
+    'audio-capture': '마이크를 찾지 못했어요',
+    'network': '인터넷 연결을 확인해 주세요',
+    'aborted': '듣기가 멈췄어요. 마이크를 다시 눌러 주세요',
+    other: '이 폰에서는 말로 하기가 잘 안 돼요. 아래 예시를 누르거나 글자로 써 주세요'
+  };
 
   function voiceHTML() {
     const examples = ['딸한테 사진 보내줘', '아들한테 전화해줘', '약 먹었어', '오늘 약 뭐 남았어?'];
     return '<div class="overlay voice"><div class="s-head"><button class="back" data-act="voice-close">← 닫기</button></div>' +
       '<div class="center" style="flex:none;padding:8px 0">' +
         '<button class="ring' + (ui.listening ? ' pulse' : '') + '" style="background:' + (ui.listening ? 'var(--alert)' : 'var(--ink)') + ';color:var(--surface);border:0" data-act="listen" aria-label="다시 듣기">' + ICON.mic.replace('<svg', '<svg width="48" height="48"') + '</button>' +
-        '<h2 style="font-size:calc(26px * var(--scale))">' + (Recognition ? (ui.listening ? '듣고 있어요. 말씀하세요' : '마이크를 누르고 말씀하세요') : '이 폰은 음성 인식이 안 돼요') + '</h2></div>' +
+        '<h2 style="font-size:calc(26px * var(--scale))">' + (!Recognition ? '이 폰은 말로 하기가 안 돼요' : ui.voiceErr ? '말을 듣지 못했어요' : ui.listening === 'starting' ? '마이크 준비 중…' : ui.listening ? '듣고 있어요. 말씀하세요' : '마이크를 누르고 말씀하세요') + '</h2>' +
+        (ui.voiceErr || !Recognition ? '<p>' + esc(ui.voiceErr || '아래 예시를 누르거나 글자로 써 주세요') + '</p>' : '') + '</div>' +
       '<div class="heard" id="heard">' + esc(ui.heard) + '</div>' +
       '<div class="hint">이렇게 말해 보세요 (눌러도 돼요)</div>' +
       '<div class="chips">' + examples.map(t => '<button class="chip" data-say="' + esc(t) + '">"' + esc(t) + '"</button>').join('') + '</div>' +
@@ -451,15 +461,15 @@
   }
 
   function openVoice() {
-    ui.voiceOpen = true; ui.heard = '';
+    ui.voiceOpen = true; ui.heard = ''; ui.voiceErr = '';
     render();
     listen();
   }
 
   function listen() {
     if (!Recognition) return;
-    try { if (rec) rec.abort(); } catch (e) { /* 이미 멈춤 */ }
-    rec = new Recognition();
+    if (rec) { rec.onstart = rec.onaudiostart = rec.onerror = rec.onend = rec.onresult = null; try { rec.abort(); } catch (e) { /* 이미 멈춤 */ } }
+    const r = rec = new Recognition();
     rec.lang = 'ko-KR';
     rec.interimResults = true;
     rec.maxAlternatives = 3;
@@ -472,10 +482,21 @@
         handleUtterance(alts);
       }
     };
-    rec.onerror = e => { if (e.error === 'not-allowed') toast('마이크를 쓸 수 있게 허용해 주세요'); };
-    rec.onend = () => { ui.listening = false; if (ui.voiceOpen) render(); };
-    ui.listening = true;
-    rec.start();
+    // 실제로 듣기 시작했을 때만 '듣고 있어요'. 안 되는 폰(아이폰 일부 등)에서는 이유를 보여 주고 기록한다
+    let started = false;
+    const fail = code => {
+      if (rec !== r || ui.voiceErr || !ui.voiceOpen) return;
+      ui.voiceErr = VOICE_ERR[code] || VOICE_ERR.other;
+      rpc('hyodo_voice_log', { p_token: token, p_heard: '[오류] ' + navigator.userAgent, p_intent: 'error:' + code }).catch(() => {});
+      ui.listening = false; r.onerror = r.onend = null; try { r.abort(); } catch (e) { /* 이미 멈춤 */ }
+      render();
+    };
+    rec.onstart = rec.onaudiostart = () => { if (started) return; started = true; ui.listening = true; if (ui.voiceOpen) render(); };
+    rec.onerror = e => { if (e.error !== 'aborted' || !started) fail(e.error || 'other'); };
+    rec.onend = () => { if (!started) return fail('ended-early'); ui.listening = false; if (ui.voiceOpen) render(); };
+    setTimeout(() => { if (!started) fail('no-start'); }, 5000);
+    ui.listening = 'starting'; ui.voiceErr = '';
+    try { rec.start(); } catch (e) { return fail('start-failed'); }
     render();
   }
 
