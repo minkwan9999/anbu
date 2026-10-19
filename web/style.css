@@ -95,6 +95,12 @@ img { max-width: 100%; }
 .small-link { border: 0; background: none; color: var(--muted); font-family: var(--font-ui); font-size: 14px; padding: 6px; text-decoration: underline; align-self: center; }
 
 .s-head { display: flex; align-items: center; gap: 10px; }
+/* 날짜·시계와 뒤로 버튼은 본문이 스크롤돼도 맨 위에 붙어 있다 */
+.s-top, .s-head {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  margin: -14px -16px 0; padding: 14px 16px 8px; background: var(--bg);
+}
+body.demo .s-top, body.demo .s-head { top: calc(54px + env(safe-area-inset-top, 0px)); }
 .back { border: 2px solid var(--line); background: var(--surface); border-radius: 14px; padding: 8px 14px; font-size: calc(18px * var(--scale)); font-weight: 700; color: var(--ink); }
 .s-title { font-size: calc(28px * var(--scale)); font-weight: 900; margin: 4px 0 0; }
 .s-list { display: grid; gap: 12px; }
@@ -241,3 +247,4 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 /* ---------- 보호자 등록: 사진 + 관계·이름 ---------- */
 .join-who { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: center; }
 .join-thumb { width: 72px; height: 72px; border-radius: 18px; border: 2px dashed var(--line); font-size: 14px; }
+.overlay .s-head { position: static; margin: 0; padding: 0; background: none; }

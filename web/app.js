@@ -323,7 +323,7 @@
         '<button class="ghost-btn" data-act="pair-done">다 했어요</button></div>';
     } else if (r === 'home') {
       const nm = nextGroup();
-      html += '<div><div class="s-date">' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + days[d.getDay()] + '요일</div>' +
+      html += '<div class="s-top"><div class="s-date">' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + days[d.getDay()] + '요일</div>' +
         '<div class="s-time">' + sayTime(nowHM()) + '</div></div>' +
         (S.meds.length === 0 ? '' : nm
           ? '<div class="s-next">💊 <span>' + (nowMins() > minsOf(nm.time) ? '아직 안 드신 약' : '다음 약') + ' <b>' + sayTime(nm.time) + '</b><br>' + esc(nm.label) + '</span></div>'
