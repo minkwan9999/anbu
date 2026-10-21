@@ -1,4 +1,4 @@
-// 효도비서 웹 푸시
+// 안부버튼 웹 푸시
 //  - {action:"vapid"}            : 보호자 폰이 구독할 때 쓰는 공개 키
 //  - {action:"test", token}      : 보호자 폰으로 테스트 알림 보내기
 //  - {action:"cron"} + x-cron-secret : 5분마다 pg_cron 이 호출. 약 미응답 알림 발송
@@ -24,7 +24,7 @@ async function vapid() {
     keys = JSON.parse(rows[0].decrypted_secret);
   } else {
     keys = webpush.generateVAPIDKeys();
-    await sql`select vault.create_secret(${JSON.stringify(keys)}, 'hyodo_vapid', '효도비서 웹 푸시 VAPID 키')`;
+    await sql`select vault.create_secret(${JSON.stringify(keys)}, 'hyodo_vapid', '안부버튼 웹 푸시 VAPID 키')`;
   }
   webpush.setVapidDetails(SUBJECT, keys!.publicKey, keys!.privateKey);
   return keys!;
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       const rows = await sql`select id from hyodo.guardians where token = ${body.token ?? ""}`;
       if (!rows.length) return json({ error: "invalid_token" }, 401);
       const subs = await sql`select id, endpoint, p256dh, auth from hyodo.guardian_push where guardian_id = ${rows[0].id}`;
-      const sent = await send(subs, { title: "효도비서", body: "알림이 잘 와요. 약을 안 드시면 이렇게 알려 드릴게요.", tag: "test" });
+      const sent = await send(subs, { title: "안부버튼", body: "알림이 잘 와요. 약을 안 드시면 이렇게 알려 드릴게요.", tag: "test" });
       return json({ sent });
     }
 

@@ -1,11 +1,11 @@
-// 효도비서 서비스 워커: 보호자 폰에서 앱이 닫혀 있어도 약 미응답 알림을 띄운다
+// 안부버튼 서비스 워커: 보호자 폰에서 앱이 닫혀 있어도 약 미응답 알림을 띄운다
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || '효도비서', {
+  e.waitUntil(self.registration.showNotification(d.title || '안부버튼', {
     body: d.body || '',
     icon: 'icon-192.png',
     badge: 'icon-192.png',
