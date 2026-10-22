@@ -58,6 +58,7 @@
   let G = null;              // 보호자: 연결된 어르신 목록 (hyodo_g_list)
   const hashHid = () => (location.hash.match(/^#\/guardian\/h\/([0-9a-f-]{36})/) || [])[1] || null;
   const hashJoin = () => (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1] || null;
+  const hashAdmin = () => (location.hash.match(/^#\/admin\/(\w+)$/) || [])[1] || null;   // 개발자용 사용 현황
   const ui = { route: 'home', ctx: {}, alarm: null, heard: '' };
 
   function forget() {
@@ -89,6 +90,7 @@
   function ping(event) { chans.forEach(c => c.send({ type: 'broadcast', event: event || 'changed', payload: {} })); }
 
   async function refresh() {
+    if (hashAdmin()) return;
     if (!token) return render();
     try {
       if (role === 'senior') {
@@ -117,7 +119,25 @@
       if (S.guardian_count === 0 && ui.route === 'home' && !ui.pairDismissed) ui.route = 'pair';
       checkAlarm(); if (['home', 'medinfo', 'pair'].includes(ui.route)) render();
     }
-    else { renderGuardianSafe(); if (pushState === 'checking') checkPush(); }
+    else { renderGuardianSafe(); if (pushState === 'checking') checkPush(); guardianTouch(); }
+  }
+
+  // 보호자가 앱을 연 날을 남긴다 (사용 현황용, 30분에 한 번). 실제 사용이면 가격 질문을 띄울지도 한 번 묻는다
+  let lastGTouch = 0, priceChecked = false;
+  function guardianTouch() {
+    if (Date.now() - lastGTouch < 30 * 60000) return;
+    lastGTouch = Date.now();
+    rpc('hyodo_g_touch', { p_token: token }).catch(() => {});
+    if (!priceChecked && mode !== 'demo') {
+      priceChecked = true;
+      rpc('hyodo_g_price_ask', { p_token: token }).then(ask => { if (ask) { ui.priceAsk = true; renderGuardianSafe(); } }).catch(() => {});
+    }
+  }
+  function priceCard() {
+    if (!ui.priceAsk || mode === 'demo') return '';
+    return '<div class="notice price-ask"><span><b>안부버튼, 써 보시니 어떠세요?</b><br>정식으로 나오면 어르신 한 분당 <b>월 1,000원</b>으로 하려고 해요. ' +
+      '그 값이면 계속 쓰시겠어요? <small>(지금은 무료이고, 눌러도 결제되지 않아요)</small></span>' +
+      '<span class="price-btns"><button class="g-btn primary" data-g="price-yes">쓸게요</button><button class="g-btn" data-g="price-no">아니요</button></span></div>';
   }
 
   /* ---------- 작은 도구 ---------- */
@@ -174,6 +194,7 @@
   }
 
   function render() {
+    if (hashAdmin()) return;
     renderDemoBar();
     if (!token) return renderStart();
     if (role === 'guardian' && ui.route === 'g-add') return renderGuardianAdd();
@@ -635,7 +656,7 @@
         '<span>' + sayTime(m.time) + ' 약이에요. 전화해 보시겠어요?</span></div>';
     });
 
-    html += pushNotice();
+    html += pushNotice() + priceCard();
 
     html += '<div class="card"><h2>오늘 약 <span>' + ok + ' / ' + S.meds.length + ' 드심</span></h2>' +
       (S.meds.length ? S.meds.map(m => {
@@ -709,7 +730,7 @@
           '<button class="g-btn primary" type="submit">저장</button><button class="g-btn" type="button" data-g="cancel-my-name">취소</button></form>'
         : '<div class="name-row"><h1>' + esc(G.name) + ' 님</h1><button class="g-btn small" data-g="edit-my-name">수정</button></div>') +
       '<small>연결된 어르신 ' + list.length + '명</small></div></div>';
-    html += pushNotice();
+    html += pushNotice() + priceCard();
     html += list.length ? '<div class="elder-list">' + list.map(h => {
       const status = h.miss > 0 ? '<span class="pill-chip st-miss">⚠️ 약 ' + h.miss + '개 안 드심</span>'
         : h.due > 0 ? '<span class="pill-chip st-due">💊 지금 드실 시간</span>'
@@ -898,6 +919,11 @@
       const g = b.dataset.g;
       if (g === 'to-list') { ui.forceList = true; ui.route = 'home'; if (location.hash === '#/guardian') return refresh().then(render); location.hash = '#/guardian'; return; }
       if (g === 'add') { ui.route = 'g-add'; return render(); }
+      if (g === 'price-yes' || g === 'price-no') {
+        ui.priceAsk = false; renderGuardianSafe();
+        return rpc('hyodo_g_price', { p_token: token, p_answer: g === 'price-yes' ? 'yes' : 'no' })
+          .then(() => toast('답해 주셔서 고마워요')).catch(() => { ui.priceAsk = true; renderGuardianSafe(); toast('저장하지 못했어요. 다시 눌러 주세요'); });
+      }
       if (g === 'demo') { b.disabled = true; return startDemo().catch(() => { b.disabled = false; toast('시작하지 못했어요. 인터넷 연결을 확인해 주세요'); }); }
       if (g === 'edit-my-name') { editingMyName = true; render(); return document.getElementById('my-name').select(); }
       if (g === 'cancel-my-name') { editingMyName = false; return render(); }
@@ -1099,8 +1125,43 @@
     }
   });
 
+  /* ---------- 사용 현황 (개발자용, #/admin/<키>) ---------- */
+  async function renderAdmin() {
+    setChannels([]); stopAlarm();
+    $demoBar.hidden = true; document.body.classList.remove('demo');
+    $app.innerHTML = '<div class="center"><p>불러오는 중…</p></div>';
+    let d;
+    try { d = await rpc('hyodo_admin_stats', { p_key: hashAdmin() }); }
+    catch (e) { $app.innerHTML = '<div class="center"><h2>볼 수 없어요</h2><p>' + (e.message === 'forbidden' ? '주소의 키가 맞지 않아요' : '인터넷 연결을 확인해 주세요') + '</p></div>'; return; }
+    const list = d.households;
+    const days = h => Math.min(14, h.age_days);
+    const active = list.filter(h => h.senior_days > 0).length;
+    const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '-';
+    $app.innerHTML = '<div class="guardian admin">' +
+      '<div class="g-top"><div class="g-name"><h1>사용 현황</h1><small>실제 사용만 (체험 제외) · 최근 14일 · ' + esc(d.today) + '</small></div></div>' +
+      '<div class="admin-sum">' +
+        '<div><b>' + list.length + '</b><span>어르신</span></div>' +
+        '<div><b>' + active + '</b><span>14일 안에 쓴 집</span></div>' +
+        '<div><b>' + d.price_yes + ' : ' + d.price_no + '</b><span>월 1,000원 쓸게요 : 아니요</span></div>' +
+      '</div>' +
+      (list.length ? list.map(h =>
+        '<div class="card admin-card"><h2>' + esc(h.elder_name) + ' 님 <span>' + h.age_days + '일째 · 마지막 ' + minsAgo(h.last_active) + '</span></h2>' +
+        '<div class="admin-meta">시작 보호자 ' + esc(h.owner || '-') + ' · 보호자 ' + h.guardians + '명 · 약 ' + h.meds + '개</div>' +
+        '<div class="admin-grid">' +
+          '<div><b>' + h.senior_days + ' / ' + days(h) + '일</b><span>어르신이 쓴 날</span></div>' +
+          '<div><b>' + h.guardian_days + ' / ' + days(h) + '일</b><span>보호자가 본 날</span></div>' +
+          '<div><b>' + pct(h.took_7, h.due_7) + '</b><span>약 기록 (7일, ' + h.took_7 + '/' + h.due_7 + ')</span></div>' +
+          '<div><b>' + h.calls + ' · ' + h.photos + ' · ' + h.voice + '</b><span>전화 · 사진 · 말로 하기</span></div>' +
+        '</div>' + (h.voice_errors ? '<div class="admin-meta">말로 하기 실패 ' + h.voice_errors + '번</div>' : '') + '</div>').join('')
+        : '<div class="notice"><span>아직 실제로 쓰는 어르신이 없어요.</span></div>') +
+      '<p class="admin-meta">어르신이 쓴 날: 앱을 열었거나 약 기록·전화·사진·말로 하기를 한 날. 보호자가 본 날: 연결된 보호자 중 누구든 앱을 연 날 (10월 22일부터 기록). 약 기록은 지금 등록된 약 기준이라 대략이에요.</p>' +
+      '<button class="wide-btn" style="background:var(--ink);color:var(--surface)" data-act="admin-reload">새로 불러오기</button></div>';
+  }
+  $app.addEventListener('click', e => { if (e.target.closest('[data-act="admin-reload"]')) renderAdmin(); });
+
   /* ---------- 시작 ---------- */
-  if (hashJoin()) handleJoin();
+  if (hashAdmin()) renderAdmin();
+  else if (hashJoin()) handleJoin();
   else if (token) { ui.route = 'home'; refresh().then(render); } else render();
   // 주소의 #/guardian 등을 바꾸면 그 역할 화면으로 바꿔 보여 준다
   function switchTo(r) {
@@ -1113,6 +1174,7 @@
     return Promise.resolve();
   }
   window.addEventListener('hashchange', () => {
+    if (hashAdmin()) return renderAdmin();
     if (hashJoin()) return handleJoin();
     if (location.hash === '#/demo') setMode('demo');
     const r = pickRole();
