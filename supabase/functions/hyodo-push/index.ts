@@ -8,7 +8,7 @@ import webpush from "npm:web-push@3.6.7";
 import postgres from "npm:postgres@3.4.4";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 1 });
-const SUBJECT = "https://minkwan9999.github.io/hyodo-biseo/";
+const SUBJECT = "https://anbu.opae.kr/";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
