@@ -17,8 +17,9 @@
   --miss-bg: #fbe5e3;
   --miss-fg: #a52620;
   --on-color: #ffffff;
-  --font-senior: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  /* 앱 전체 글꼴: 프리텐다드. 못 받으면 폰 기본 한글 글꼴 */
+  --font-senior: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --scale: 1;
 }
 @media (prefers-color-scheme: dark) {
@@ -274,7 +275,7 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 /* ---------- 소개(랜딩): 민트 그라데이션, 큰 글씨, 흰 카드. 화면 끝까지 넓게 ---------- */
 body.lp-on .app { max-width: none; padding: 0; }
 .lp { --mint: #12b886; --mint-2: #0ca678; --deep: #0b3b2e; --soft: #e6fcf5;
-  font-family: "Pretendard Variable", Pretendard, var(--font-senior); color: var(--ink); font-size: 20px; line-height: 1.7; word-break: keep-all; }
+  font-family: var(--font-senior); color: var(--ink); font-size: 20px; line-height: 1.7; word-break: keep-all; }
 .lp-in { max-width: 1080px; margin: 0 auto; padding: 0 max(20px, env(safe-area-inset-left, 0px)); }
 .lp em { font-style: normal; color: var(--mint-2); }
 
