@@ -241,7 +241,7 @@
         '<details><summary>아이폰도 되나요?</summary><p>보호자 폰은 아이폰도 돼요. 어르신 폰은 알림과 "말로 하기"가 잘 되는 안드로이드를 권해요.</p></details>' +
         '<details><summary>보호자가 여러 명이어도 되나요?</summary><p>네. 가족 여럿이 같은 어르신과 연결할 수 있고, 요양보호사 한 분이 여러 어르신을 맡을 수도 있어요.</p></details>' +
       '</section>' +
-      '<footer class="ld-foot"><a href="#/privacy">개인정보처리방침</a></footer>' +
+      '<footer class="ld-foot">' + askLink('문의하기') + ' · <a href="#/privacy">개인정보처리방침</a></footer>' +
     '</div>';
   }
 
@@ -256,13 +256,16 @@
       '<h2>2. 쓰는 곳</h2><p>어르신 폰과 보호자 폰에 서로의 소식을 보여 주고, 약 시간과 약을 안 드셨을 때 알림을 보내는 데만 씁니다. 광고나 판매에 쓰지 않습니다.</p>' +
       '<h2>3. 보관</h2><p>정보는 Supabase(서울 지역) 서버에 저장되고, 화면 주소는 GitHub Pages로 제공됩니다. 알림은 구글·애플 등 각 폰의 알림 서비스를 통해 전달됩니다. 이 외의 제3자에게 제공하지 않습니다.</p>' +
       '<h2>4. 보관 기간과 삭제</h2><p>서비스를 쓰는 동안 보관합니다. 삭제를 원하시면 아래 문의처로 알려 주세요. 확인 후 지체 없이 지웁니다. 시작 보호자는 보호자 화면의 <b>데이터 초기화</b>로 약·연락처·사진·활동 기록을 화면에서 비울 수 있습니다.</p>' +
-      '<h2>5. 문의</h2><p>운영자: ' + esc(OPERATOR.name) + '<br>문의처: ' + esc(OPERATOR.contact) + '</p>' +
+      '<h2>5. 문의</h2><p>운영자(개인정보 보호책임자): ' + esc(OPERATOR.name) + '<br>이메일: ' + esc(OPERATOR.contact) + '<br>' + askLink('문의 양식으로 보내기') + '</p>' +
       '<p class="ld-sub">시행일: 2026년 10월 22일</p></div>';
   }
 
   /* ---------- 처음 시작 ---------- */
   // 개인정보처리방침에 보이는 운영자 정보. 공개 전에 채운다
   const OPERATOR = { name: '주민관', contact: 'minkwan999+anbu@gmail.com' };
+  // 문의·오류 제보·기능 요청 (구글 폼)
+  const ASK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe7J24JZJAHkoUeQX3ARzFvlH9R0Ca-y_DY91yPmBdwlfq1wA/viewform';
+  const askLink = label => '<a href="' + ASK_URL + '" target="_blank" rel="noopener">' + label + '</a>';
   const GUARDIAN_RELS = ['딸', '아들', '며느리', '사위', '손주', '배우자', '요양보호사', '사회복지사', '기타'];
   // 어르신 화면 연락처에 넣을 호칭: '말로 하기'가 알아듣는 말로 맞춘다 ("선생님한테 전화해줘")
   const CONTACT_REL = { '요양보호사': '선생님', '사회복지사': '선생님', '': '기타' };
@@ -781,7 +784,8 @@
     html += '<div class="foot">' + (S.demo ? '' :
       (S.pair_code ? '<div>다른 가족·보호자를 더 연결하려면 이 코드를 쓰세요: <b>' + esc(S.pair_code) + '</b> (30분 유효)</div>'
                    : '<div><button class="g-btn" data-g="new-code">다른 가족·보호자 연결 코드 만들기</button></div>') +
-      '<div><button class="g-btn" data-g="unlink">' + esc(S.elder_name) + ' 님과 연결 끊기</button></div>') + '</div></div>';
+      '<div><button class="g-btn" data-g="unlink">' + esc(S.elder_name) + ' 님과 연결 끊기</button></div>') +
+      '<div>' + askLink('문의·오류 제보') + ' · <a href="#/privacy">개인정보처리방침</a></div></div></div>';
 
     $app.innerHTML = html;
     loadPhotos();
@@ -818,7 +822,8 @@
       '<div>보호자 화면 주소: <b>' + esc(location.origin + location.pathname) + '#/guardian</b></div>' +
       (store.get(tkey('senior')) ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>' : '') +
       (mode === 'real' ? '<div><button class="g-btn" data-g="demo">📱 체험 모드 열기 (실제 연결은 그대로)</button></div>' : '') +
-      '<div><button class="g-btn" data-g="leave">이 폰에서 보호자 나가기</button></div></div></div>';
+      '<div><button class="g-btn" data-g="leave">이 폰에서 보호자 나가기</button></div>' +
+      '<div>' + askLink('문의·오류 제보') + ' · <a href="#/privacy">개인정보처리방침</a></div></div></div>';
     $app.innerHTML = html;
   }
 
