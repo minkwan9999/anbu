@@ -214,7 +214,7 @@
   }
 
   /* ---------- 소개(랜딩): 아직 어르신·보호자 등록이 없는 기기에서 처음 보는 화면 ---------- */
-  const HERO_IMG = '';   // 첫 화면 사진. web/img/ 에 넣고 'img/hero.jpg' 처럼 적는다
+  const HERO_IMG = 'img/hero.jpg';   // 첫 화면 사진. web/img/ 에 넣고 'img/hero.jpg' 처럼 적는다
   function landingHTML() {
     const feat = (icon, title, text) => '<div class="lp-feat"><span class="lp-ic" aria-hidden="true">' + icon + '</span><b>' + title + '</b><p>' + text + '</p></div>';
     const head = (label, title, text) => '<div class="lp-head"><span class="lp-label">' + label + '</span><h2>' + title + '</h2>' + (text ? '<p>' + text + '</p>' : '') + '</div>';
