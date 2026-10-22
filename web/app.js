@@ -236,6 +236,7 @@
       // 소개
       '<section class="lp-sec lp-overview"><div class="lp-in">' +
         head('Overview', '부모님 안부, 이제 버튼 하나로', '어려운 스마트폰 대신 큰 버튼 3개. 부모님은 누르기만 하시고, 설정과 확인은 가족이 멀리서 해요.') +
+        '<img class="lp-wide" src="img/family.jpg" alt="할아버지, 할머니, 부모, 아이들이 함께 웃고 있는 가족 사진" loading="lazy">' +
       '</div></section>' +
       // 문제 제기 (진한 배경 + 말풍선)
       '<section class="lp-sec lp-dark"><div class="lp-in">' +

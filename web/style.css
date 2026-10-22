@@ -309,6 +309,7 @@ body.lp-on .app { max-width: none; padding: 0; }
 .lp-head p { margin: 0 auto; max-width: 620px; color: var(--muted); font-size: 21px; }
 .lp-overview { padding: 56px 0 24px; }
 .lp-overview .lp-head { margin: 0; }
+.lp-wide { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 30%; border-radius: 28px; margin-top: 32px; box-shadow: 0 20px 50px rgba(20, 40, 60, .15); }
 
 .lp-dark { background: radial-gradient(80% 60% at 50% 100%, #12795a 0%, transparent 70%), linear-gradient(180deg, #0b3b2e, #062319); color: #eafff6; }
 .lp-dark .lp-label { color: #63e6be; }
