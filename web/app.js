@@ -90,7 +90,7 @@
   function ping(event) { chans.forEach(c => c.send({ type: 'broadcast', event: event || 'changed', payload: {} })); }
 
   async function refresh() {
-    if (hashAdmin()) return;
+    if (hashAdmin() || location.hash === '#/intro' || location.hash === '#/privacy') return;   // 앱 화면이 아닌 페이지
     if (!token) return render();
     try {
       if (role === 'senior') {
@@ -196,6 +196,8 @@
 
   function render() {
     if (hashAdmin()) return;
+    // #/intro: 등록한 폰에서도 소개 화면을 다시 볼 수 있게
+    if (location.hash === '#/intro') { $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = landingHTML(); return; }
     if (location.hash === '#/privacy') { $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = privacyHTML(); return; }
     renderDemoBar();
     if (!token) return renderStart();
@@ -823,7 +825,7 @@
       (store.get(tkey('senior')) ? '<div><a href="#/senior">이 기기의 어르신 화면 보기 →</a></div>' : '') +
       (mode === 'real' ? '<div><button class="g-btn" data-g="demo">📱 체험 모드 열기 (실제 연결은 그대로)</button></div>' : '') +
       '<div><button class="g-btn" data-g="leave">이 폰에서 보호자 나가기</button></div>' +
-      '<div>' + askLink('문의·오류 제보') + ' · <a href="#/privacy">개인정보처리방침</a></div></div></div>';
+      '<div>' + askLink('문의·오류 제보') + ' · <a href="#/intro">안부버튼 소개</a> · <a href="#/privacy">개인정보처리방침</a></div></div></div>';
     $app.innerHTML = html;
   }
 
@@ -951,6 +953,7 @@
       setMode('demo'); ui.route = 'demo-role'; return renderStart();
     }
     if (st === 'demo-senior' || st === 'demo-guardian') { ui.route = 'start-' + st.slice(5); ui.joinInfo = null; return renderStart(); }
+    if (st === 'go' && location.hash === '#/intro') { ui.landingDone = true; location.hash = '#/'; return; }
     if (st === 'go') { ui.landingDone = true; window.scrollTo(0, 0); return renderStart(); }
     if (st === 'landing') { ui.landingDone = false; return renderStart(); }
     if (st === 'senior' || st === 'guardian') { setMode('real'); ui.route = 'start-' + st; ui.joinInfo = null; return renderStart(); }
@@ -1270,7 +1273,7 @@
         S = null; editingName = false; editingContacts.clear();
         ui.route = hashJoin() ? 'g-add' : 'home';
         render(); refresh();
-      }
+      } else render();   // 어르신: 소개·개인정보처리방침에서 돌아오면 다시 그린다
       return;
     }
     switchTo(r).then(() => { if (pendingPreview && role === 'senior') { pendingPreview = false; previewAlarm(); } });
