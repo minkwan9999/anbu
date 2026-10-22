@@ -196,6 +196,7 @@
 
   function render() {
     if (hashAdmin()) return;
+    if (location.hash === '#/privacy') { $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = privacyHTML(); return; }
     renderDemoBar();
     if (!token) return renderStart();
     if (role === 'guardian' && ui.route === 'g-add') return renderGuardianAdd();
@@ -207,7 +208,61 @@
   function loading() { $app.innerHTML = '<div class="center"><p>불러오는 중…</p></div>';
   }
 
+  /* ---------- 소개(랜딩): 아직 어르신·보호자 등록이 없는 기기에서 처음 보는 화면 ---------- */
+  function landingHTML() {
+    return '<div class="landing">' +
+      '<header class="ld-hero"><h1>안부버튼</h1>' +
+        '<p class="ld-lead">부모님 폰은 <b>버튼 3개</b>로 쉽게,<br>약 드셨는지는 <b>내 폰</b>으로 바로.</p></header>' +
+      // 하는 일: 어르신 폰 ↔ 보호자 폰
+      '<section class="ld-flow" aria-label="안부버튼이 하는 일">' +
+        '<div class="ld-node"><div class="ld-who">👵 어르신 폰</div>' +
+          '<div class="ld-btns"><span class="b-call">📞 전화하기</span><span class="b-photo">📷 사진 보내기</span><span class="b-pill">💊 약 먹었어</span></div></div>' +
+        '<div class="ld-links">' +
+          '<div class="ld-link"><span class="ld-arrow" aria-hidden="true">↓</span><span><b>소식이 바로 가요</b><small>약 드신 것 · 보낸 사진 · 전화</small></span></div>' +
+          '<div class="ld-link"><span class="ld-arrow" aria-hidden="true">↑</span><span><b>멀리서 설정해요</b><small>약 시간 · 연락처 · 글자 크기</small></span></div>' +
+        '</div>' +
+        '<div class="ld-node"><div class="ld-who">👨‍👩‍👧 보호자 폰</div><div class="ld-sub">자녀 · 요양보호사</div></div>' +
+      '</section>' +
+      // 약 시간의 흐름
+      '<section class="ld-card"><h2>약 드실 시간이 되면</h2><ol class="ld-steps">' +
+        '<li><b>⏰ 어르신 폰에 알림</b><span>화면이 꺼져 있어도 알려 드려요</span></li>' +
+        '<li><b>💊 "약 먹었어" 한 번 누르기</b><span>보호자 폰에 "드셨어요"가 바로 떠요</span></li>' +
+        '<li><b>⚠️ 30분 지나도 안 드시면</b><span>보호자 폰으로 알림이 가요. 전화 한 통이면 돼요</span></li>' +
+      '</ol></section>' +
+      '<div class="ld-cta"><button class="wide-btn ld-go" data-start="go">시작하기</button>' +
+        '<a class="ld-demo" href="#/demo">먼저 체험해 보기</a></div>' +
+      '<section class="ld-card"><h2>시작은 두 단계</h2><ol class="ld-howto">' +
+        '<li>부모님 폰에서 이 주소를 열고 <b>어르신 폰</b>을 고르세요.</li>' +
+        '<li>화면에 나온 <b>QR</b>을 내 폰 카메라로 찍으세요.</li>' +
+      '</ol></section>' +
+      '<section class="ld-card ld-faq"><h2>자주 묻는 질문</h2>' +
+        '<details><summary>돈이 드나요?</summary><p>지금은 무료예요.</p></details>' +
+        '<details><summary>앱을 설치해야 하나요?</summary><p>아니요. 인터넷 주소로 열고, 브라우저 메뉴의 <b>홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요.</p></details>' +
+        '<details><summary>아이폰도 되나요?</summary><p>보호자 폰은 아이폰도 돼요. 어르신 폰은 알림과 "말로 하기"가 잘 되는 안드로이드를 권해요.</p></details>' +
+        '<details><summary>보호자가 여러 명이어도 되나요?</summary><p>네. 가족 여럿이 같은 어르신과 연결할 수 있고, 요양보호사 한 분이 여러 어르신을 맡을 수도 있어요.</p></details>' +
+      '</section>' +
+      '<footer class="ld-foot"><a href="#/privacy">개인정보처리방침</a></footer>' +
+    '</div>';
+  }
+
+  function privacyHTML() {
+    return '<div class="landing policy"><a class="ld-back" href="./">← 안부버튼</a><h1>개인정보처리방침</h1>' +
+      '<p>안부버튼(이하 "서비스")은 어르신과 보호자를 잇기 위해 꼭 필요한 정보만 받고, 다른 목적으로 쓰지 않습니다.</p>' +
+      '<h2>1. 받는 정보</h2><ul>' +
+        '<li>어르신: 성함, 약 이름과 시간, 약 드신 기록, 보낸 사진, "말로 하기"로 들린 문장</li>' +
+        '<li>보호자: 이름, 어르신과의 관계, 전화번호, 사진(선택)</li>' +
+        '<li>연락처: 어르신 폰 "전화하기"에 넣은 이름, 전화번호, 사진</li>' +
+        '<li>알림을 켠 경우: 알림을 보내기 위한 기기 등록 정보</li></ul>' +
+      '<h2>2. 쓰는 곳</h2><p>어르신 폰과 보호자 폰에 서로의 소식을 보여 주고, 약 시간과 약을 안 드셨을 때 알림을 보내는 데만 씁니다. 광고나 판매에 쓰지 않습니다.</p>' +
+      '<h2>3. 보관</h2><p>정보는 Supabase(서울 지역) 서버에 저장되고, 화면 주소는 GitHub Pages로 제공됩니다. 알림은 구글·애플 등 각 폰의 알림 서비스를 통해 전달됩니다. 이 외의 제3자에게 제공하지 않습니다.</p>' +
+      '<h2>4. 보관 기간과 삭제</h2><p>서비스를 쓰는 동안 보관합니다. 삭제를 원하시면 아래 문의처로 알려 주세요. 확인 후 지체 없이 지웁니다. 시작 보호자는 보호자 화면의 <b>데이터 초기화</b>로 약·연락처·사진·활동 기록을 화면에서 비울 수 있습니다.</p>' +
+      '<h2>5. 문의</h2><p>운영자: ' + esc(OPERATOR.name) + '<br>문의처: ' + esc(OPERATOR.contact) + '</p>' +
+      '<p class="ld-sub">시행일: 2026년 10월 22일</p></div>';
+  }
+
   /* ---------- 처음 시작 ---------- */
+  // 개인정보처리방침에 보이는 운영자 정보. 공개 전에 채운다
+  const OPERATOR = { name: '(운영자 이름)', contact: '(문의 이메일)' };
   const GUARDIAN_RELS = ['딸', '아들', '며느리', '사위', '손주', '배우자', '요양보호사', '사회복지사', '기타'];
   // 어르신 화면 연락처에 넣을 호칭: '말로 하기'가 알아듣는 말로 맞춘다 ("선생님한테 전화해줘")
   const CONTACT_REL = { '요양보호사': '선생님', '사회복지사': '선생님', '': '기타' };
@@ -231,10 +286,13 @@
         (resume ? '<button class="role-btn" data-start="demo-resume"><b>▶ 하던 체험 이어서 하기</b><span>이 폰에서 하던 체험 화면으로 돌아가요.</span></button>' : '') +
         '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
         '</div>';   // 폰 두 대로 체험(demo2)은 화면에서 숨김: 체험은 폰 하나로만
+    } else if (step === 'start' && !ui.landingDone) {
+      $app.innerHTML = landingHTML();
     } else if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>안부버튼</h1><p>이 폰은 누가 쓰나요?</p>' +
         '<button class="role-btn" data-start="senior"><b>👵 어르신 폰</b><span>큰 버튼 3개와 말로 하기. 설정은 보호자 폰에서 합니다.</span></button>' +
-        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button></div>';
+        '<button class="role-btn" data-start="guardian"><b>👨‍👩‍👧 보호자 폰</b><span>자녀나 요양보호사가 약 시간·연락처를 설정하고 소식을 받습니다.</span></button>' +
+        '<button class="small-link" type="button" data-start="landing">안부버튼 소개 다시 보기</button></div>';
     } else if (step === 'start-senior') {
       $app.innerHTML = '<form class="start" id="f-senior"><h1>' + (demo ? '체험용 어르신 폰' : '어르신 폰') + '</h1>' +
         '<div class="field"><label for="elder-name">어르신 성함 (보호자 화면에 표시)</label><input id="elder-name" maxlength="20" placeholder="예: 김순자" autocomplete="off"></div>' +
@@ -417,7 +475,13 @@
         '<button class="wide-btn" data-act="alarm-took">먹었어요</button>' +
         '<button class="ghost-btn" data-act="alarm-snooze">10분 뒤에 다시 알려줘</button></div>';
     }
+    // 말로 하기 창이 다시 그려져도(듣기 시작·끝) 글자 칸에 쓰던 말과 커서는 그대로 둔다
+    const sayEl = document.getElementById('say-input');
+    const said = sayEl ? sayEl.value : '', sayFocus = sayEl && document.activeElement === sayEl;
     $app.innerHTML = html;
+    const sayNew = document.getElementById('say-input');
+    if (sayNew && said) sayNew.value = said;
+    if (sayNew && sayFocus) sayNew.focus();
 
     const qr = document.getElementById('qr');
     if (qr && window.QRCode) {
@@ -882,6 +946,8 @@
       setMode('demo'); ui.route = 'demo-role'; return renderStart();
     }
     if (st === 'demo-senior' || st === 'demo-guardian') { ui.route = 'start-' + st.slice(5); ui.joinInfo = null; return renderStart(); }
+    if (st === 'go') { ui.landingDone = true; window.scrollTo(0, 0); return renderStart(); }
+    if (st === 'landing') { ui.landingDone = false; return renderStart(); }
     if (st === 'senior' || st === 'guardian') { setMode('real'); ui.route = 'start-' + st; ui.joinInfo = null; return renderStart(); }
     if (st === 'back') {
       // 체험 쪽에서 뒤로 가면 체험 시작 화면, 실제 쪽이면 실제 시작 화면

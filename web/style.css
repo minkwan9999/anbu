@@ -261,3 +261,48 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .admin-grid b { font-size: 17px; }
 .admin-meta { font-size: 13px; color: var(--muted); margin: 0; }
 .push-senior small { display: block; margin-top: 2px; }
+
+/* ---------- 소개(랜딩) · 개인정보처리방침: 어르신도 읽기 쉽게 큰 글씨, 높은 대비, 넉넉한 여백 ---------- */
+.landing { font-family: var(--font-senior); color: var(--ink); display: grid; gap: 22px; padding: 36px 0 48px; font-size: 18px; line-height: 1.6; }
+.ld-hero h1 { font-size: 42px; font-weight: 900; margin: 0 0 8px; letter-spacing: -0.02em; }
+.ld-lead { margin: 0; font-size: 22px; line-height: 1.5; color: var(--ink); }
+.ld-lead b { font-weight: 900; }
+
+.ld-flow { display: grid; gap: 0; }
+.ld-node { background: var(--surface); border: 2px solid var(--line); border-radius: 22px; padding: 18px; display: grid; gap: 12px; }
+.ld-who { font-size: 22px; font-weight: 900; }
+.ld-sub { font-size: 16px; color: var(--muted); }
+.ld-btns { display: grid; gap: 8px; }
+.ld-btns span { color: var(--on-color); border-radius: 14px; padding: 10px 14px; font-size: 18px; font-weight: 800; }
+.ld-btns .b-call { background: var(--call); } .ld-btns .b-photo { background: var(--photo); } .ld-btns .b-pill { background: var(--pill); }
+.ld-links { display: grid; gap: 10px; padding: 12px 10px; border-left: 4px solid var(--line); margin-left: 30px; }
+.ld-link { display: flex; gap: 8px; align-items: center; }
+.ld-link b { display: block; font-size: 17px; font-weight: 800; }
+.ld-link small { display: block; font-size: 14px; color: var(--muted); line-height: 1.4; }
+.ld-arrow { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--surface); font-size: 22px; font-weight: 900; }
+
+.ld-card { background: var(--surface); border: 2px solid var(--line); border-radius: 22px; padding: 20px; display: grid; gap: 12px; }
+.ld-card h2 { margin: 0; font-size: 22px; font-weight: 900; }
+.ld-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.ld-steps li { display: grid; gap: 2px; padding-left: 16px; border-left: 4px solid var(--line); }
+.ld-steps li:last-child { border-left-color: var(--alert); }
+.ld-steps b { font-size: 19px; font-weight: 800; }
+.ld-steps span { font-size: 16px; color: var(--muted); }
+.ld-howto { margin: 0; padding-left: 26px; display: grid; gap: 8px; }
+
+.ld-cta { display: grid; gap: 12px; }
+.ld-go { background: var(--ink); color: var(--surface); font-size: 24px; font-weight: 900; padding: 20px; border-radius: 20px; border: 0; }
+.ld-demo { text-align: center; font-size: 18px; font-weight: 700; color: var(--ink); padding: 14px; border: 2px solid var(--line); border-radius: 20px; text-decoration: none; background: var(--surface); }
+
+.ld-faq details { border-top: 1px solid var(--line); padding: 12px 0 0; }
+.ld-faq summary { font-size: 18px; font-weight: 800; cursor: pointer; }
+.ld-faq p { margin: 8px 0 0; font-size: 17px; color: var(--muted); }
+.ld-foot { text-align: center; font-size: 15px; }
+.ld-foot a, .ld-back { color: var(--muted); }
+
+.policy h1 { font-size: 30px; margin: 0; }
+.policy h2 { font-size: 20px; margin: 8px 0 -10px; }
+.policy p, .policy ul { margin: 0; font-size: 17px; }
+.policy ul { padding-left: 22px; display: grid; gap: 4px; }
+.ld-links .ld-arrow { margin-left: -31px; box-shadow: 0 0 0 4px var(--bg); }
+.ld-link { gap: 12px; }
