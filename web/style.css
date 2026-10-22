@@ -260,3 +260,4 @@ body.demo .toast { top: calc(64px + env(safe-area-inset-top, 0px)); }
 .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .admin-grid b { font-size: 17px; }
 .admin-meta { font-size: 13px; color: var(--muted); margin: 0; }
+.push-senior small { display: block; margin-top: 2px; }

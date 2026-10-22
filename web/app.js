@@ -118,6 +118,7 @@
     if (role === 'senior') {
       if (S.guardian_count === 0 && ui.route === 'home' && !ui.pairDismissed) ui.route = 'pair';
       checkAlarm(); if (['home', 'medinfo', 'pair'].includes(ui.route)) render();
+      if (pushState === 'checking') checkPush();
     }
     else { renderGuardianSafe(); if (pushState === 'checking') checkPush(); guardianTouch(); }
   }
@@ -355,6 +356,7 @@
           '<button class="big b-pill" data-act="took">' + ICON.pill + '약 먹었어</button>' +
         '</div>' +
         '<button class="mic" data-act="voice">' + ICON.mic + '말로 하기</button>' +
+        (pushState === 'off' ? '<button class="ghost-btn push-senior" data-act="push-on">🔔 약 시간 알림 켜기<small>앱을 닫아도 약 드실 시간에 알려 드려요</small></button>' : '') +
         '<button class="small-link" data-act="show-pair">QR코드 (보호자 연결용)</button>';
     } else if (r === 'call' || r === 'photo-who') {
       const isCall = r === 'call';
@@ -792,9 +794,20 @@
         const reg = await navigator.serviceWorker.register('sw.js');
         const sub = await reg.pushManager.getSubscription();
         st = sub && Notification.permission === 'granted' ? 'on' : 'off';
+        // 한 폰에서 어르신·보호자를 둘 다 쓰면 구독은 하나라서, 지금 역할로도 서버에 한 번 저장해 둔다
+        if (st === 'on') saveSub(sub).catch(() => {});
       } catch (e) { st = 'unsupported'; }
     }
-    if (st !== pushState) { pushState = st; if (role === 'guardian') renderGuardianSafe(); }
+    if (st !== pushState) {
+      pushState = st;
+      if (role === 'guardian') renderGuardianSafe();
+      else if (role === 'senior' && ui.route === 'home' && !ui.voiceOpen && !ui.alarm) render();
+    }
+  }
+  // 어르신 폰 구독은 약 시간 알림용, 보호자 폰 구독은 미응답 알림용
+  function saveSub(sub) {
+    const j = sub.toJSON();
+    return rpc(role === 'senior' ? 'hyodo_senior_save_push' : 'hyodo_g_save_push', { p_token: token, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
   }
 
   function pushNotice() {
@@ -827,9 +840,8 @@
       const { publicKey } = await pushCall({ action: 'vapid' });
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(publicKey) });
-      const j = sub.toJSON();
-      await rpc('hyodo_g_save_push', { p_token: token, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
-      pushState = 'on'; toast('알림을 켰어요'); ping(); refresh();
+      await saveSub(sub);
+      pushState = 'on'; toast(role === 'senior' ? '약 드실 시간에 알림이 와요' : '알림을 켰어요'); ping(); refresh();
     } catch (e) { toast('알림을 켜지 못했어요. 다시 해 주세요'); }
   }
 
@@ -898,6 +910,7 @@
       if (a === 'shoot') return photoInput.click();
       if (a === 'gallery') return galleryInput.click();
       if (a === 'show-pair') return go('pair');
+      if (a === 'push-on') return enablePush();
       if (a === 'pair-done') { ui.pairDismissed = true; return go('home'); }
       if (a === 'new-code') return rpc('hyodo_refresh_pair_code', { p_token: token }).then(refresh).catch(() => toast('코드를 받지 못했어요'));
       if (a === 'alarm-snooze') {
@@ -1167,7 +1180,7 @@
   function switchTo(r) {
     setChannels([]);
     stopAlarm();
-    role = r; token = r ? store.get(tkey(r)) : null; S = null; G = null;
+    role = r; token = r ? store.get(tkey(r)) : null; S = null; G = null; pushState = 'checking';
     ui.route = token ? 'home' : 'start'; ui.ctx = {}; ui.voiceOpen = false; ui.forceList = false;
     if (token) return refresh().then(render);
     render();

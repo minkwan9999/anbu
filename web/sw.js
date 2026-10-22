@@ -1,4 +1,6 @@
-// 안부버튼 서비스 워커: 보호자 폰에서 앱이 닫혀 있어도 약 미응답 알림을 띄운다
+// 안부버튼 서비스 워커: 앱이 닫혀 있어도 알림을 띄운다
+//  - 어르신 폰: 약 드실 시간 (alarm: 길게 진동, 누를 때까지 남음)
+//  - 보호자 폰: 약 미응답
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
@@ -11,6 +13,8 @@ self.addEventListener('push', e => {
     badge: 'icon-192.png',
     tag: d.tag,
     renotify: !!d.tag,
+    requireInteraction: !!d.alarm,
+    vibrate: d.alarm ? [600, 300, 600, 300, 600, 300, 1200] : [200, 100, 200],
     data: { url: d.url || './#/guardian' }
   }));
 });

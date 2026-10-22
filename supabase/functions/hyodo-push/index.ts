@@ -1,7 +1,8 @@
 // 안부버튼 웹 푸시
 //  - {action:"vapid"}            : 보호자 폰이 구독할 때 쓰는 공개 키
 //  - {action:"test", token}      : 보호자 폰으로 테스트 알림 보내기
-//  - {action:"cron"} + x-cron-secret : 5분마다 pg_cron 이 호출. 약 미응답 알림 발송
+//  - {action:"cron"} + x-cron-secret : 1분마다 pg_cron 이 호출.
+//      어르신 폰: 약 시간 정각과 10분 뒤에 '약 드실 시간' 알림 / 보호자 폰: 30분 넘게 안 드시면 미응답 알림
 // VAPID 키와 cron 비밀값은 Supabase Vault 에만 있다. 처음 호출 때 VAPID 키를 만들어 Vault 에 저장한다.
 import webpush from "npm:web-push@3.6.7";
 import postgres from "npm:postgres@3.4.4";
@@ -30,7 +31,8 @@ async function vapid() {
   return keys!;
 }
 
-type Payload = { title: string; body: string; tag?: string; url?: string };
+type Payload = { title: string; body: string; tag?: string; url?: string; alarm?: boolean };
+type Sub = { id: number; endpoint: string; p256dh: string; auth: string };
 
 // 받을 폰: 그 어르신과 연결된 보호자들의 폰 (보호자 한 명이 여러 어르신을 맡을 수 있다)
 async function subsForHousehold(householdId: string) {
@@ -39,7 +41,8 @@ async function subsForHousehold(householdId: string) {
                     where l.household_id = ${householdId} and l.active`;
 }
 
-async function send(subs: { id: number; endpoint: string; p256dh: string; auth: string }[], payload: Payload) {
+// senior: 어르신 폰 구독(hyodo.senior_push), 아니면 보호자 폰 구독(hyodo.guardian_push)
+async function send(subs: Sub[], payload: Payload, senior = false) {
   let sent = 0;
   for (const s of subs) {
     try {
@@ -49,11 +52,13 @@ async function send(subs: { id: number; endpoint: string; p256dh: string; auth: 
         { TTL: 3 * 3600, urgency: "high" },
       );
       sent++;
-      await sql`update hyodo.guardian_push set last_ok = now() where id = ${s.id}`;
+      if (senior) await sql`update hyodo.senior_push set last_ok = now() where id = ${s.id}`;
+      else await sql`update hyodo.guardian_push set last_ok = now() where id = ${s.id}`;
     } catch (e) {
       const code = (e as { statusCode?: number }).statusCode;
-      // 404/410: 보호자가 알림을 끄거나 앱을 지움 → 등록 정보 정리
-      if (code === 404 || code === 410) await sql`delete from hyodo.guardian_push where id = ${s.id}`;
+      // 404/410: 알림을 끄거나 앱을 지움 → 등록 정보 정리
+      if ((code === 404 || code === 410) && senior) await sql`delete from hyodo.senior_push where id = ${s.id}`;
+      else if (code === 404 || code === 410) await sql`delete from hyodo.guardian_push where id = ${s.id}`;
       else console.error("push failed", code, (e as Error).message);
     }
   }
@@ -82,6 +87,20 @@ Deno.serve(async (req) => {
     if (body.action === "cron") {
       const [s] = await sql`select decrypted_secret from vault.decrypted_secrets where name = 'hyodo_cron_secret'`;
       if (!s || req.headers.get("x-cron-secret") !== s.decrypted_secret) return json({ error: "forbidden" }, 403);
+      // 어르신 폰: 약 드실 시간
+      const dues = await sql`select * from hyodo.claim_due_meds()`;
+      let seniorSent = 0;
+      for (const d of dues) {
+        const subs = await sql`select id, endpoint, p256dh, auth from hyodo.senior_push where household_id = ${d.household_id}`;
+        seniorSent += await send(subs as unknown as Sub[], {
+          title: d.kind === "due" ? "💊 약 드실 시간이에요" : "💊 아직 약을 안 드셨어요",
+          body: d.labels + " · 누르고 '먹었어요'를 눌러 주세요",
+          tag: "med-" + d.household_id + "-" + d.med_time,
+          url: "./#/senior",
+          alarm: true,
+        }, true);
+      }
+      // 보호자 폰: 30분 넘게 안 드심
       const alerts = await sql`select * from hyodo.claim_missed_alerts()`;
       let sent = 0;
       for (const a of alerts) {
@@ -92,7 +111,7 @@ Deno.serve(async (req) => {
           url: "./#/guardian/h/" + a.household_id,
         });
       }
-      return json({ alerts: alerts.length, sent });
+      return json({ dues: dues.length, seniorSent, alerts: alerts.length, sent });
     }
 
     return json({ error: "unknown action" }, 400);
