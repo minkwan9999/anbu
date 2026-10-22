@@ -213,8 +213,10 @@
   const CONTACT_REL = { '요양보호사': '선생님', '사회복지사': '선생님', '': '기타' };
   function renderStart() {
     const join = (location.hash.match(/^#\/join\/(\d{6})$/) || [])[1];
-    const step = ['start-senior', 'start-guardian', 'demo-role'].includes(ui.route) ? ui.route : (join ? 'start-guardian' : 'start');
     const demo = mode === 'demo';
+    // 주소가 #/guardian, #/senior 면 '누가 쓰나요?'를 건너뛰고 그 역할의 시작 화면부터 (실제 사용)
+    const byHash = demo ? null : /^#\/guardian/.test(location.hash) ? 'start-guardian' : /^#\/senior/.test(location.hash) ? 'start-senior' : null;
+    const step = ['start-senior', 'start-guardian', 'demo-role'].includes(ui.route) ? ui.route : (join ? 'start-guardian' : byHash || 'start');
     // 실제 사용 시작 화면(기본 주소)과 체험 시작 화면(#/demo)은 주소로 완전히 나눈다
     if (step === 'demo-role') {
       $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 폰 두 대</span><h1>안부버튼</h1><p>이 폰은 누가 쓰나요?</p>' +
