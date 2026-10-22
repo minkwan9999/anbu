@@ -347,6 +347,7 @@ body.lp-on .app { max-width: none; padding: 0; }
 .lp-two { display: grid; gap: 40px; }
 .lp-two .lp-head { text-align: left; margin-bottom: 16px; }
 .lp-howto { margin: 0; padding-left: 30px; display: grid; gap: 14px; font-size: 21px; }
+.lp-note { margin: 14px 0 0; padding: 14px 16px; border-radius: 16px; background: var(--soft); font-size: 18px; color: var(--ink); }
 .lp-faq details { border-bottom: 1px solid var(--line); padding: 14px 0; }
 .lp-faq summary { font-size: 21px; font-weight: 800; cursor: pointer; }
 .lp-faq p { margin: 8px 0 0; color: var(--muted); }

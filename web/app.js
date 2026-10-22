@@ -277,10 +277,13 @@
         '</div></div></section>' +
       // 시작 방법 + 질문
       '<section class="lp-sec"><div class="lp-in lp-two">' +
-        '<div>' + head('Start', '시작은 두 단계', '') + '<ol class="lp-howto">' +
-          '<li><b>부모님 폰</b>에서 이 주소를 열고 <b>어르신 폰</b>을 고르세요.</li>' +
-          '<li>화면에 나온 <b>QR</b>을 내 폰 카메라로 찍으면 끝이에요.</li></ol></div>' +
+        '<div>' + head('Start', '시작은 이렇게', '') + '<ol class="lp-howto">' +
+          '<li><b>부모님 폰</b>에서 이 주소를 열고 <b>어르신 폰</b>을 고르세요. 화면에 <b>숫자 6자리</b>가 나와요.</li>' +
+          '<li><b>내 폰</b>에서도 이 주소를 열고 <b>보호자 폰</b>을 고르세요.</li>' +
+          '<li>부모님 폰의 <b>숫자 6자리</b>를 넣으면 끝이에요.</li></ol>' +
+          '<p class="lp-note">QR이 익숙하면 숫자 대신 부모님 폰의 QR을 내 폰 카메라로 찍어도 돼요.</p></div>' +
         '<div class="lp-faq">' + head('FAQ', '자주 묻는 질문', '') +
+          '<details><summary>QR 찍기가 번거로워요</summary><p>QR은 안 찍어도 돼요. 부모님 폰에 나온 <b>숫자 6자리</b>만 내 폰에 넣으면 연결돼요.</p></details>' +
           '<details><summary>돈이 드나요?</summary><p>지금은 무료예요.</p></details>' +
           '<details><summary>앱을 설치해야 하나요?</summary><p>아니요. 인터넷 주소로 열고 <b>홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요.</p></details>' +
           '<details><summary>아이폰도 되나요?</summary><p>보호자 폰은 아이폰도 돼요. 어르신 폰은 알림과 "말로 하기"가 잘 되는 안드로이드를 권해요.</p></details>' +
@@ -448,7 +451,7 @@
 
     if (r === 'pair') {
       html += '<div class="center s-center"><h2>보호자 폰과 연결하기</h2>' +
-        '<p>보호자 폰 카메라로 이 QR을 찍거나,<br>아래 숫자를 보호자 폰에 넣어 주세요</p>' +
+        '<p>아래 <b>숫자 6자리</b>를 보호자 폰에 넣어 주세요.<br>보호자 폰 카메라로 QR을 찍어도 돼요.</p>' +
         (S.pair_code
           ? '<div class="pair-box"><div class="qr-wrap" id="qr"></div><div class="pair-code">' + esc(S.pair_code) + '</div><div class="hint">30분 동안 쓸 수 있어요</div></div>'
           : '<div class="pair-box"><p>연결 코드 시간이 지났어요</p><button class="ghost-btn" data-act="new-code">새 코드 받기</button></div>') +
