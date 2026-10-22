@@ -194,10 +194,13 @@
     render();
   }
 
+  // 소개 화면은 화면 끝까지 넓게 쓴다
+  const setWide = on => document.body.classList.toggle('lp-on', !!on);
   function render() {
     if (hashAdmin()) return;
+    setWide(false);
     // #/intro: 등록한 폰에서도 소개 화면을 다시 볼 수 있게
-    if (location.hash === '#/intro') { $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = landingHTML(); return; }
+    if (location.hash === '#/intro') { setWide(true); $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = landingHTML(); return; }
     if (location.hash === '#/privacy') { $demoBar.hidden = true; document.body.classList.remove('demo'); $app.innerHTML = privacyHTML(); return; }
     renderDemoBar();
     if (!token) return renderStart();
@@ -211,39 +214,78 @@
   }
 
   /* ---------- 소개(랜딩): 아직 어르신·보호자 등록이 없는 기기에서 처음 보는 화면 ---------- */
+  const HERO_IMG = '';   // 첫 화면 사진. web/img/ 에 넣고 'img/hero.jpg' 처럼 적는다
   function landingHTML() {
-    return '<div class="landing">' +
-      '<header class="ld-hero"><h1>안부버튼</h1>' +
-        '<p class="ld-lead">부모님 폰은 <b>버튼 3개</b>로 쉽게,<br>약 드셨는지는 <b>내 폰</b>으로 바로.</p></header>' +
-      // 하는 일: 어르신 폰 ↔ 보호자 폰
-      '<section class="ld-flow" aria-label="안부버튼이 하는 일">' +
-        '<div class="ld-node"><div class="ld-who">👵 어르신 폰</div>' +
-          '<div class="ld-btns"><span class="b-call">📞 전화하기</span><span class="b-photo">📷 사진 보내기</span><span class="b-pill">💊 약 먹었어</span></div></div>' +
-        '<div class="ld-links">' +
-          '<div class="ld-link"><span class="ld-arrow" aria-hidden="true">↓</span><span><b>소식이 바로 가요</b><small>약 드신 것 · 보낸 사진 · 전화</small></span></div>' +
-          '<div class="ld-link"><span class="ld-arrow" aria-hidden="true">↑</span><span><b>멀리서 설정해요</b><small>약 시간 · 연락처 · 글자 크기</small></span></div>' +
+    const feat = (icon, title, text) => '<div class="lp-feat"><span class="lp-ic" aria-hidden="true">' + icon + '</span><b>' + title + '</b><p>' + text + '</p></div>';
+    const head = (label, title, text) => '<div class="lp-head"><span class="lp-label">' + label + '</span><h2>' + title + '</h2>' + (text ? '<p>' + text + '</p>' : '') + '</div>';
+    return '<div class="lp">' +
+      // 1. 첫 화면: 왼쪽 사진 + 오른쪽 간략 소개와 시작 버튼
+      '<section class="lp-hero"><div class="lp-in">' +
+        '<nav class="lp-nav"><span class="lp-logo">안부버튼</span><button class="lp-nav-go" data-start="go">시작하기</button></nav>' +
+        '<div class="lp-hero-grid">' +
+          '<div class="lp-photo' + (HERO_IMG ? '' : ' noimg') + '">' + (HERO_IMG ? '<img src="' + HERO_IMG + '" alt="어르신과 가족이 함께 웃고 있는 모습">' : '') +
+            '<div class="lp-photo-ph" aria-hidden="true"><span>👵</span><span>👨‍👩‍👧</span></div></div>' +
+          '<div class="lp-intro">' +
+            '<span class="lp-eyebrow">부모님 안부, 버튼 하나로</span>' +
+            '<h1><span>부모님은 <em>버튼 3개</em>만,</span> <span>안부는 <em>내 폰</em>으로.</span></h1>' +
+            '<p class="lp-lead">전화하기 · 사진 보내기 · 약 먹었어.<br>부모님 폰은 큰 버튼 3개로 쉽게 쓰시고,<br>약을 드셨는지는 가족 폰으로 바로 알려 드려요.</p>' +
+            '<div class="lp-cta"><button class="lp-go" data-start="go">안부버튼 시작하기</button><a class="lp-try" href="#/demo">먼저 체험해 보기</a></div>' +
+            '<ul class="lp-trust"><li>무료</li><li>앱 설치 없이</li><li>가족 여럿이 함께</li></ul>' +
+          '</div>' +
+        '</div></div></section>' +
+      // 소개
+      '<section class="lp-sec lp-overview"><div class="lp-in">' +
+        head('Overview', '부모님 안부, 이제 버튼 하나로', '어려운 스마트폰 대신 큰 버튼 3개. 부모님은 누르기만 하시고, 설정과 확인은 가족이 멀리서 해요.') +
+      '</div></section>' +
+      // 문제 제기 (진한 배경 + 말풍선)
+      '<section class="lp-sec lp-dark"><div class="lp-in">' +
+        head('Why', '떨어져 사는 부모님,<br>이런 걱정 해 보셨나요?', '') +
+        '<div class="lp-bubbles">' +
+          '<span>약은 제때 챙겨 드셨을까?</span><span class="r">전화를 안 받으시면 덜컥 걱정돼요</span>' +
+          '<span>스마트폰이 어렵다고 하세요</span><span class="r">어르신 여러 분 약 시간을 챙기기 벅차요 <small>— 요양보호사</small></span>' +
         '</div>' +
-        '<div class="ld-node"><div class="ld-who">👨‍👩‍👧 보호자 폰</div><div class="ld-sub">자녀 · 요양보호사</div></div>' +
-      '</section>' +
-      // 약 시간의 흐름
-      '<section class="ld-card"><h2>약 드실 시간이 되면</h2><ol class="ld-steps">' +
-        '<li><b>⏰ 어르신 폰에 알림</b><span>화면이 꺼져 있어도 알려 드려요</span></li>' +
-        '<li><b>💊 "약 먹었어" 한 번 누르기</b><span>보호자 폰에 "드셨어요"가 바로 떠요</span></li>' +
-        '<li><b>⚠️ 30분 지나도 안 드시면</b><span>보호자 폰으로 알림이 가요. 전화 한 통이면 돼요</span></li>' +
-      '</ol></section>' +
-      '<div class="ld-cta"><button class="wide-btn ld-go" data-start="go">시작하기</button>' +
-        '<a class="ld-demo" href="#/demo">먼저 체험해 보기</a></div>' +
-      '<section class="ld-card"><h2>시작은 두 단계</h2><ol class="ld-howto">' +
-        '<li>부모님 폰에서 이 주소를 열고 <b>어르신 폰</b>을 고르세요.</li>' +
-        '<li>화면에 나온 <b>QR</b>을 내 폰 카메라로 찍으세요.</li>' +
-      '</ol></section>' +
-      '<section class="ld-card ld-faq"><h2>자주 묻는 질문</h2>' +
-        '<details><summary>돈이 드나요?</summary><p>지금은 무료예요.</p></details>' +
-        '<details><summary>앱을 설치해야 하나요?</summary><p>아니요. 인터넷 주소로 열고, 브라우저 메뉴의 <b>홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요.</p></details>' +
-        '<details><summary>아이폰도 되나요?</summary><p>보호자 폰은 아이폰도 돼요. 어르신 폰은 알림과 "말로 하기"가 잘 되는 안드로이드를 권해요.</p></details>' +
-        '<details><summary>보호자가 여러 명이어도 되나요?</summary><p>네. 가족 여럿이 같은 어르신과 연결할 수 있고, 요양보호사 한 분이 여러 어르신을 맡을 수도 있어요.</p></details>' +
-      '</section>' +
-      '<footer class="ld-foot">' + askLink('문의하기') + ' · <a href="#/privacy">개인정보처리방침</a></footer>' +
+        '<p class="lp-answer">안부버튼은 <b>부모님은 쉽게, 가족은 안심</b>할 수 있게 만들었어요.</p>' +
+      '</div></section>' +
+      // 어떻게 이어지나 (폰 목업 + 흐름)
+      '<section class="lp-sec"><div class="lp-in">' +
+        head('How it works', '두 폰이 이렇게 이어져요', '') +
+        '<div class="lp-how">' +
+          '<div class="lp-phone tilt-l" aria-hidden="true"><div class="lp-screen">' +
+            '<small>10월 22일 목요일</small><b class="lp-clock">오전 9시 5분</b>' +
+            '<span class="pb b-call">📞 전화하기</span><span class="pb b-photo">📷 사진 보내기</span><span class="pb b-pill">💊 약 먹었어</span>' +
+          '</div><p class="lp-cap">👵 어르신 폰</p></div>' +
+          '<div class="lp-links">' +
+            '<div class="lp-link"><span class="lp-arrow">→</span><span><b>소식이 바로 가요</b><small>약 드신 것 · 보낸 사진 · 전화</small></span></div>' +
+            '<div class="lp-link"><span class="lp-arrow">←</span><span><b>멀리서 설정해요</b><small>약 시간 · 연락처 · 글자 크기</small></span></div>' +
+          '</div>' +
+          '<div class="lp-phone tilt-r" aria-hidden="true"><div class="lp-screen g">' +
+            '<small>연결된 어르신</small><b class="lp-clock">김순자 님</b>' +
+            '<span class="st ok">✅ 아침약 드셨어요 · 8:05</span><span class="st">📷 사진 1장이 왔어요</span><span class="st miss">⚠️ 저녁약 30분 지났어요</span>' +
+          '</div><p class="lp-cap">👨‍👩‍👧 보호자 폰</p></div>' +
+        '</div></div></section>' +
+      // 상세 기능
+      '<section class="lp-sec lp-gray"><div class="lp-in">' +
+        head('Features', '안부버튼이 하는 일', '') +
+        '<div class="lp-feats">' +
+          feat('🔘', '큰 버튼 3개', '설정 화면도, 작은 글씨도 없어요. 누르기만 하면 돼요.') +
+          feat('⏰', '약 시간 알림', '앱을 닫아도, 화면이 꺼져 있어도 약 드실 시간을 알려 드려요.') +
+          feat('📲', '안 드시면 가족에게', '30분이 지나도 안 드시면 보호자 폰으로 알림이 가요.') +
+          feat('📷', '사진 한 장으로 안부', '버튼 한 번에 찍은 사진이 가족에게 바로 가요.') +
+          feat('🗣️', '말로 하기', '"아들한테 전화해줘" 사투리로 말해도 알아들어요.') +
+          feat('👥', '여럿이 함께', '가족 여럿이 함께 보고, 요양보호사는 여러 어르신을 한 화면에서 챙겨요.') +
+        '</div></div></section>' +
+      // 시작 방법 + 질문
+      '<section class="lp-sec"><div class="lp-in lp-two">' +
+        '<div>' + head('Start', '시작은 두 단계', '') + '<ol class="lp-howto">' +
+          '<li><b>부모님 폰</b>에서 이 주소를 열고 <b>어르신 폰</b>을 고르세요.</li>' +
+          '<li>화면에 나온 <b>QR</b>을 내 폰 카메라로 찍으면 끝이에요.</li></ol></div>' +
+        '<div class="lp-faq">' + head('FAQ', '자주 묻는 질문', '') +
+          '<details><summary>돈이 드나요?</summary><p>지금은 무료예요.</p></details>' +
+          '<details><summary>앱을 설치해야 하나요?</summary><p>아니요. 인터넷 주소로 열고 <b>홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요.</p></details>' +
+          '<details><summary>아이폰도 되나요?</summary><p>보호자 폰은 아이폰도 돼요. 어르신 폰은 알림과 "말로 하기"가 잘 되는 안드로이드를 권해요.</p></details>' +
+        '</div></div></section>' +
+      '<section class="lp-final"><div class="lp-in"><h2>오늘부터 부모님 안부를 가볍게</h2><button class="lp-go light" data-start="go">안부버튼 시작하기</button></div></section>' +
+      '<footer class="lp-foot">' + askLink('문의하기') + ' · <a href="#/privacy">개인정보처리방침</a></footer>' +
     '</div>';
   }
 
@@ -277,6 +319,7 @@
     // 주소가 #/guardian, #/senior 면 '누가 쓰나요?'를 건너뛰고 그 역할의 시작 화면부터 (실제 사용)
     const byHash = demo ? null : /^#\/guardian/.test(location.hash) ? 'start-guardian' : /^#\/senior/.test(location.hash) ? 'start-senior' : null;
     const step = ['start-senior', 'start-guardian', 'demo-role'].includes(ui.route) ? ui.route : (join ? 'start-guardian' : byHash || 'start');
+    setWide(false);
     // 실제 사용 시작 화면(기본 주소)과 체험 시작 화면(#/demo)은 주소로 완전히 나눈다
     if (step === 'demo-role') {
       $app.innerHTML = '<div class="start"><span class="demo-tag start-tag">체험 · 폰 두 대</span><h1>안부버튼</h1><p>이 폰은 누가 쓰나요?</p>' +
@@ -292,6 +335,7 @@
         '<button class="role-btn" data-start="demo1"><b>📱 폰 하나로 체험' + (resume ? ' (새로 시작)' : '') + '</b><span>어르신 화면과 보호자 화면을 이 폰에서 번갈아 보며 알람까지 울려 봐요.</span></button>' +
         '</div>';   // 폰 두 대로 체험(demo2)은 화면에서 숨김: 체험은 폰 하나로만
     } else if (step === 'start' && !ui.landingDone) {
+      setWide(true);
       $app.innerHTML = landingHTML();
     } else if (step === 'start') {
       $app.innerHTML = '<div class="start"><h1>안부버튼</h1><p>이 폰은 누가 쓰나요?</p>' +
