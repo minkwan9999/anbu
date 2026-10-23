@@ -35,7 +35,7 @@ jobs:
           ANBU_KEYSTORE_PASSWORD: ${{ secrets.ANBU_KEYSTORE_PASSWORD }}
           ANBU_KEY_ALIAS: ${{ secrets.ANBU_KEY_ALIAS }}
           ANBU_KEY_PASSWORD: ${{ secrets.ANBU_KEY_PASSWORD }}
-        run: gradle -p android --no-daemon assembleDebug bundleRelease
+        run: gradle -p android --no-daemon --stacktrace assembleDebug bundleRelease
 
       # 폰에 바로 깔아 보는 시험용 APK, 플레이스토어에 올리는 AAB
       - uses: actions/upload-artifact@v4

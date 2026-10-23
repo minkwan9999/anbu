@@ -4,6 +4,8 @@ plugins {
 
 // 서명 키는 GitHub Secrets 에서 환경 변수로 받는다 (없으면 서명 없이 빌드)
 def ks = System.getenv('ANBU_KEYSTORE_FILE')
+// 버전 번호: GitHub Actions 실행 번호 (플레이스토어에 올릴 때마다 커져야 한다)
+def vcode = (System.getenv('ANBU_VERSION_CODE') ?: '1').toInteger()
 
 android {
     namespace 'com.anbubutton.app'
@@ -13,8 +15,8 @@ android {
         applicationId 'com.anbubutton.app'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('ANBU_VERSION_CODE') ?: '1') as int
-        versionName '0.1.' + (System.getenv('ANBU_VERSION_CODE') ?: '1')
+        versionCode vcode
+        versionName "0.1.${vcode}"
     }
 
     signingConfigs {
