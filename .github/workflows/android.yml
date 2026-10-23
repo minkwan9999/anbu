@@ -1,0 +1,49 @@
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      # 플레이스토어 업로드용 서명 키 (Secrets 가 없으면 서명 없이 빌드)
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANBU_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/anbu.jks"
+            echo "ANBU_KEYSTORE_FILE=$RUNNER_TEMP/anbu.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        env:
+          ANBU_VERSION_CODE: ${{ github.run_number }}
+          ANBU_KEYSTORE_PASSWORD: ${{ secrets.ANBU_KEYSTORE_PASSWORD }}
+          ANBU_KEY_ALIAS: ${{ secrets.ANBU_KEY_ALIAS }}
+          ANBU_KEY_PASSWORD: ${{ secrets.ANBU_KEY_PASSWORD }}
+        run: gradle -p android --no-daemon assembleDebug bundleRelease
+
+      # 폰에 바로 깔아 보는 시험용 APK, 플레이스토어에 올리는 AAB
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anbu-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anbu-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab

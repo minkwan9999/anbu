@@ -119,6 +119,7 @@
       if (S.guardian_count === 0 && ui.route === 'home' && !ui.pairDismissed) ui.route = 'pair';
       checkAlarm(); if (['home', 'medinfo', 'pair'].includes(ui.route)) render();
       if (pushState === 'checking') checkPush();
+      syncNativeAlarms();
     }
     else { renderGuardianSafe(); if (pushState === 'checking') checkPush(); guardianTouch(); }
   }
@@ -140,6 +141,23 @@
       '그 값이면 계속 쓰시겠어요? <small>(지금은 무료이고, 눌러도 결제되지 않아요)</small></span>' +
       '<span class="price-btns"><button class="g-btn primary" data-g="price-yes">쓸게요</button><button class="g-btn" data-g="price-no">아니요</button></span></div>';
   }
+
+  /* ---------- 안드로이드 앱(window.AnbuApp) 연동 ---------- */
+  // 앱 안이면 약 시간 목록을 앱에 넘겨, 화면이 꺼져 있어도 앱이 알람을 울리게 한다
+  const APP = window.AnbuApp || null;
+  function syncNativeAlarms() {
+    if (!APP || role !== 'senior' || !S) return;
+    const list = groupByTime(S.meds).map(g => ({
+      time: g.time, label: g.label, taken: g.ids.every(id => (S.meds.find(m => m.id === id) || {}).status === 'ok')
+    }));
+    try { APP.setAlarms(JSON.stringify(list)); } catch (e) { /* 예전 앱 */ }
+  }
+  const appAlarmSetup = () => { try { return APP ? APP.alarmSetupNeeded() : ''; } catch (e) { return ''; } };
+  // 앱의 알람을 눌러 들어오면: 어르신 화면에서 지금 약을 다시 확인해 알람 화면을 띄운다
+  window.anbuNativeAlarm = () => {
+    if (role !== 'senior') { location.hash = '#/senior'; return; }
+    refresh().then(() => checkAlarm());
+  };
 
   /* ---------- 작은 도구 ---------- */
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -469,7 +487,8 @@
           '<button class="big b-pill" data-act="took">' + ICON.pill + '약 먹었어</button>' +
         '</div>' +
         '<button class="mic" data-act="voice">' + ICON.mic + '말로 하기</button>' +
-        (pushState === 'off' ? '<button class="ghost-btn push-senior" data-act="push-on">🔔 약 시간 알림 켜기<small>앱을 닫아도 약 드실 시간에 알려 드려요</small></button>' : '') +
+        (APP ? (appAlarmSetup() ? '<button class="ghost-btn push-senior" data-act="app-alarm-setup">🔔 약 알람 설정 마치기<small>화면이 꺼져 있어도 알람이 울리게 해요</small></button>' : '')
+             : pushState === 'off' ? '<button class="ghost-btn push-senior" data-act="push-on">🔔 약 시간 알림 켜기<small>앱을 닫아도 약 드실 시간에 알려 드려요</small></button>' : '') +
         '<button class="small-link" data-act="show-pair">연결 번호 (보호자 연결용)</button>';
     } else if (r === 'call' || r === 'photo-who') {
       const isCall = r === 'call';
@@ -1035,6 +1054,7 @@
       if (a === 'gallery') return galleryInput.click();
       if (a === 'show-pair') return go('pair');
       if (a === 'push-on') return enablePush();
+      if (a === 'app-alarm-setup') { try { APP.openAlarmSetup(); } catch (err) { /* 예전 앱 */ } return; }
       if (a === 'pair-done') { ui.pairDismissed = true; return go('home'); }
       if (a === 'new-code') return rpc('hyodo_refresh_pair_code', { p_token: token }).then(refresh).catch(() => toast('코드를 받지 못했어요'));
       if (a === 'alarm-snooze') {

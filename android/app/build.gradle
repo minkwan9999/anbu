@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+// 서명 키는 GitHub Secrets 에서 환경 변수로 받는다 (없으면 서명 없이 빌드)
+def ks = System.getenv('ANBU_KEYSTORE_FILE')
+
+android {
+    namespace 'com.anbubutton.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.anbubutton.app'
+        minSdk 26
+        targetSdk 35
+        versionCode (System.getenv('ANBU_VERSION_CODE') ?: '1') as int
+        versionName '0.1.' + (System.getenv('ANBU_VERSION_CODE') ?: '1')
+    }
+
+    signingConfigs {
+        release {
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('ANBU_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANBU_KEY_ALIAS')
+                keyPassword System.getenv('ANBU_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ks) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}
