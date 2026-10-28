@@ -37,6 +37,17 @@ jobs:
           ANBU_KEY_PASSWORD: ${{ secrets.ANBU_KEY_PASSWORD }}
         run: gradle -p android --no-daemon --stacktrace assembleDebug bundleRelease
 
+      # 서명 확인: 플레이스토어에 올리는 AAB 가 서명됐는지, 어떤 키인지 로그에 남긴다
+      - name: Check signature
+        run: |
+          AAB=$(ls android/app/build/outputs/bundle/release/*.aab)
+          if jarsigner -verify "$AAB" 2>&1 | grep -q "jar verified"; then
+            echo "SIGNED: 서명됨 (플레이스토어에 올릴 수 있음)"
+            keytool -printcert -jarfile "$AAB" | grep -E "Owner|SHA256|SHA-256" || true
+          else
+            echo "UNSIGNED: 서명 안 됨. GitHub Secrets 4개를 넣어야 플레이스토어에 올릴 수 있음"
+          fi
+
       # 폰에 바로 깔아 보는 시험용 APK, 플레이스토어에 올리는 AAB
       - uses: actions/upload-artifact@v4
         with:
